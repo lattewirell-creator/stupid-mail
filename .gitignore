@@ -1,0 +1,17 @@
+.DS_Store
+.openai/
+*.app/
+*.zip
+release/
+release-*/
+stupid-mail/
+stupid-mail 2/
+macos/icon-*.png
+macos/mail-icon-1024.png
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+__pycache__/
+*.pyc

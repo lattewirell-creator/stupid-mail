@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict');const L=require('../dist/mail-logic.js');
+assert.equal(L.bucket({newsletter:true}),'later');assert.equal(L.bucket({quiet:'done',newsletter:true}),'done');assert.equal(L.bucket({}),'reply');
+const old=[{id:'a',remote:true,folder:'inbox',quiet:'done',localRead:true,localStar:false,followUp:'2026-10-18'},{id:'draft',folder:'drafts'},{id:'gone',remote:true,folder:'inbox'}];
+const fresh=[{id:'a',remote:true,folder:'inbox',unread:true,star:true,subject:'updated'},{id:'b',remote:true,folder:'inbox'}];const merged=L.merge(old,fresh);
+assert.equal(merged.length,3);assert.equal(merged.find(m=>m.id==='a').quiet,'done');assert.equal(merged.find(m=>m.id==='a').unread,false);assert.equal(merged.find(m=>m.id==='a').star,false);assert.equal(merged.find(m=>m.id==='a').subject,'updated');assert.ok(merged.some(m=>m.id==='draft'));assert.ok(!merged.some(m=>m.id==='gone'));
+assert.ok(L.due({followUp:'2020-01-01'}));assert.ok(!L.due({followUp:'2099-01-01'}));
+assert.equal(L.normalizedSubject('Re: Fwd: Hello'),'hello');
+const sent={id:'s',email:'jamie@example.com',subject:'Hello',messageID:'<s@icloud.com>',sentAt:100,folder:'sent'};
+assert.ok(L.possibleReply(sent,[{id:'r',remote:true,email:'jamie@example.com',inReplyTo:'<s@icloud.com>',subject:'x'}]));
+assert.ok(!L.possibleReply(sent,[{id:'r',remote:true,email:'stranger@example.com',inReplyTo:'<s@icloud.com>',subject:'Hello'}]));
+assert.equal(L.escape('<script>"&'),'&lt;script&gt;&quot;&amp;');console.log('Passed Quiet Inbox, follow-up, merge, and escaping checks.');
+
+const morning=new Date('2026-10-17T10:00:00');const tomorrow=new Date(L.tomorrow(morning));assert.equal(tomorrow.getDate(),18);assert.equal(tomorrow.getHours(),9);
+assert.equal(L.snoozed({snoozedUntil:'2026-10-18T09:00:00Z'},Date.parse('2026-10-17T09:00:00Z')),true);
+assert.equal(L.snoozed({snoozedUntil:'2026-10-18T09:00:00Z'},Date.parse('2026-10-18T09:00:00Z')),false);
+const decisions=[{id:'read',remote:true,folder:'inbox',quiet:'later',localRead:false},{id:'star',remote:true,folder:'inbox',star:true}];
+assert.equal(L.merge(decisions,[]).length,2);assert.equal(L.merge(decisions,[{id:'read',unread:false,remote:true,folder:'inbox'}]).find(m=>m.id==='read').unread,true);
+assert.equal(L.radar({followUp:'2020-01-01',email:'x@example.com'},[]),'due');
+assert.equal(L.replyMatch({id:'a',email:'a@b.com',subject:''},[{id:'b',remote:true,email:'a@b.com',subject:'',time:'2026-10-17'}]),null);
+console.log('Passed snooze expiry, local-decision retention, unread overrides, and Radar grouping checks.');
