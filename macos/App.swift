@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         appItem.submenu = applicationMenu
         let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
         let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "Connect iCloud Mail…", action: #selector(accountMenu), keyEquivalent: ",")
+        fileMenu.addItem(withTitle: "Connect Mail Account…", action: #selector(accountMenu), keyEquivalent: ",")
         fileMenu.addItem(withTitle: "New Message", action: #selector(newMessage), keyEquivalent: "n")
         fileMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         fileItem.submenu = fileMenu
@@ -71,7 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     @objc func newMessage() { webView.evaluateJavaScript("if(!document.querySelector('dialog[open]'))document.getElementById('compose').click()", completionHandler: nil) }
     @objc func searchMail() { webView.evaluateJavaScript("if(!document.querySelector('dialog[open]'))document.getElementById('search').focus()", completionHandler: nil) }
     @objc func showAbout() {
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "The Stupid Mail", .applicationVersion: "1.0", .credits: NSAttributedString(string: "Quiet Inbox • Follow-up Radar • AI Buddy\n\niCloud inbox and sending. Sorting, follow-up reminders, and drafts stay on this Mac. Latest 40 inbox messages. Attachments are not supported yet.")])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "The Stupid Mail", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.2", .credits: NSAttributedString(string: "Quiet Inbox • Follow-up Radar • AI Buddy\n\niCloud, Gmail, and Outlook inbox and sending. Sorting, follow-up reminders, and drafts stay on this Mac. Latest 40 inbox messages. Attachments are not supported yet.")])
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if mailBusy || buddyBusy {

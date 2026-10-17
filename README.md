@@ -1,51 +1,72 @@
-# The Stupid Mail 2.1
+# The Stupid Mail 2.2
 
-A local Apple-silicon Mac app with Quiet Inbox, Follow-up Radar, and the animated Buddy from The Stupid Browser.
+A cream-and-terracotta Mac mail app with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
+
+[Download the latest Mac release](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
 
 ## Open
 
-Unzip `The Stupid Mail — Mac.zip`, drag `The Stupid Mail.app` into Applications, and open it. Quit an older version before replacing it. This is a locally built, ad-hoc-signed app, not a notarized App Store release.
+Unzip the Mac download, quit any older version, and drag The Stupid Mail.app into Applications. Requires Apple silicon and macOS 13 or later. This is an ad-hoc-signed local build, not a notarized App Store release.
 
-## iCloud
+## Connect your mail
 
-Click **Connect iCloud** inside the app. On https://account.apple.com, choose Sign-In and Security → App-Specific Passwords and generate one named “The Stupid Mail”. Enter your primary @icloud.com, @me.com, or @mac.com address and that password in the native app window. Do not use or share your main Apple Account password. Apple requires two-factor authentication for app-specific passwords.
+Choose **Connect mail** and select:
 
-The password stays in macOS Keychain. The inbox uses a certificate-validated TLS connection to imap.mail.me.com:993. Sending uses authenticated SMTP with mandatory STARTTLS to smtp.mail.me.com:587. Passwords are never exposed to the web interface or passed in process arguments.
+| Provider | Connection method |
+| --- | --- |
+| iCloud | Primary iCloud address and Apple app-specific password |
+| Gmail / Workspace | Full address and Google app password; requires 2-Step Verification and account policy support |
+| Outlook / Hotmail / Microsoft 365 | Microsoft browser sign-in; this build requires your own Microsoft application client ID |
 
-The app loads the latest 40 inbox messages when opened or refreshed. It does not download messages larger than 1 MB, and limits body downloads to 10 MB per refresh. Email is displayed as text, without loading tracking images or scripts. Attachments, custom-domain sending identities, and other server folders are not supported yet. Sent here shows mail sent from this app; it is not a sync of iCloud’s Sent folder. SMTP acceptance is confirmed before a draft is marked sent. Automatic retry is intentionally disabled to avoid duplicate messages.
+Follow the [setup guide](docs/accounts.md), including Outlook app-registration steps. One account is active at a time. Connecting another replaces its saved sign-in; drafts and sorting remain separate by address. Normal account passwords should never be entered in the app.
 
-Drafts, stars, read state, sorting, and reminders are stored locally per account in private Application Support files. Earlier browser-storage data is migrated when available. Put away and Hidden do not modify or delete messages on iCloud. Disconnect removes the Keychain password and returns to the demo mailbox; local drafts and cached mail remain available on reconnect. The app’s local cache is not additionally encrypted by the app.
+## A calmer inbox
 
-## What makes it different
-
-- **Quiet Inbox:** a suggested Needs a reply / Read later / Done grouping and five-message sessions with a deliberate stopping point. Suggestions use local rules, not AI.
-- **Follow-up Radar:** assign a date to a conversation; see overdue reminders and possible replies in the latest synced inbox. Possible replies are suggestions based on sender and thread references or matching subject/date. Review them before following up. Reminders update while the app is open; there are no background notifications while it is closed.
-- **Buddy:** the same bundled 3D character as the browser, with encouragement, email summaries, and draft help. Its answer never sends an email automatically.
+- **Quiet Inbox:** suggested Needs a reply / Read later / Done groups and five-message sessions. Grouping uses local rules, not AI.
+- **Follow-up Radar:** assign a date, filter due and upcoming reminders, and check possible replies. Matching uses thread references or sender/subject/date; review suggestions before following up.
+- **Snooze and undo:** rest a message until tomorrow at 9, wake it early, undo the latest local change, and restore hidden or put-away messages.
+- **Buddy:** a customizable little 3D robot that can summarize a selected email or help draft a reply. Its answers never send mail automatically.
+- **Keyboard shortcuts:** ⌘N to compose, ⌘F or `/` to search, and ⌘R to refresh. Drafts save while writing.
 
 ## AI setup
 
-Open Buddy and select the gear icon. Choose Ollama, OpenAI, or Claude and enter the exact model identifier from your provider. Cloud APIs require their own API key and may bill for use. The browser’s existing credentials are not imported. Keys are kept in Keychain.
+Open Buddy’s gear icon. Choose Ollama, OpenAI, or Claude and enter a model identifier. Cloud APIs require your own API key and may bill for usage. Browser credentials are not imported. Ollama needs a locally installed model and the service running at `http://127.0.0.1:11434`.
 
-Ollama uses http://127.0.0.1:11434 and needs Ollama running with a locally installed model. For cloud providers, your question goes directly to the chosen provider. An email is included only when you enable **Include this email**. Each question is independent; only the selected message and current question are supplied. Review any answer before using it in a reply.
+Questions go to your selected provider. Email content is included only when **Include this email** is enabled. Each question stands alone. Review suggested replies before sending.
 
-## Build and verification
+## Storage and limits
 
-`python3 scripts/build-mac.py` builds the app into `release-2.1/The Stupid Mail.app` and creates the ZIP alongside it. Requires Apple Command Line Tools. Source assets remain in dist/ and macos/.
+Passwords and AI keys are in macOS Keychain. Microsoft access and refresh tokens also stay in Keychain. Tokens and passwords never cross into the web interface. Provider endpoints are fixed; HTTPS/TLS certificates are validated.
 
-- Swift tests cover MIME decoding, safe text rendering, header/config injection, IMAP literal framing, and outgoing email encoding.
-- JavaScript tests cover grouping, follow-up matching, and preserving local decisions during sync.
-- SMTP is tested against a disposable localhost STARTTLS server, never with real mail.
-- An authenticated iCloud sync and real-provider Buddy response must be verified after the owner enters their credentials. These are not claimed as completed by fixture tests.
+Drafts, cached mail, and local decisions are stored per address in private Application Support files, with atomic writes. The cache is not additionally encrypted by the app. Disconnect removes saved credentials, while local drafts and mail remain for reconnecting. Disconnect does not revoke Microsoft consent.
 
-Apple setup reference: https://support.apple.com/en-us/102654
-Apple server reference: https://support.apple.com/en-us/102525
+The app reads the latest 40 inbox messages and displays text without external images or tracking scripts. Attachments and other server folders are not supported. IMAP skips bodies over 1 MB and limits full body downloads to 10 MB per refresh. Outlook bodies over 1 MB show a placeholder. Sorting, stars, read overrides, and reminders stay local. Reminders and snooze update while the app is open, with no background notifications after closing.
 
-## Version 2.1
+Sending requires native confirmation. Provider acceptance is not a delivery guarantee. If confirmation fails, check the provider’s Sent folder before retrying. **Sent here** is local, not a server-folder sync. Outlook requests a sent copy; SMTP sending does not explicitly upload one to iCloud/Gmail Sent.
 
-- Snooze a message until tomorrow at 9, wake it early, and undo the latest local change.
-- Follow-up Radar separates due, upcoming, and possible replies, with a button to open a matched reply.
-- Hidden and put-away messages can be restored; read status can be changed back to unread.
-- Native mailbox files remove the browser-storage quota limit. Writes are atomic and happen off the UI thread. Sending waits for a successful draft save, and quitting waits for pending saves.
-- Refresh keeps the open message in sync and preserves local sorting decisions.
-- Buddy supports a custom name and color, a fresh-chat button, Enter to ask, and Escape to close. Answers arriving after an account switch or chat reset are discarded.
-- UI flow tests use simulated DOM/storage fixtures; they are not visual browser tests. Live iCloud and AI checks still require account setup in the app.
+## Build and test
+
+Install Apple Command Line Tools, Python 3, and Node.js. No package install is needed.
+
+```sh
+python3 scripts/test.py
+python3 scripts/build-mac.py
+```
+
+The build creates `release-2.2/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
+
+Tests cover MIME/IMAP framing and injection resistance, provider migration, OAuth token parsing, safe Outlook message conversion, frontend draft handling, snooze/undo, and Buddy context isolation. An optional localhost SMTP transport fixture is available in `tests/smtp_transport.py`.
+
+Live account authentication, Microsoft consent, real-provider AI responses, and visual UI behavior still need testing with the owner’s setup. Fixture tests do not establish live connectivity.
+
+## Version 2.2
+
+- Gmail connection through Google app passwords.
+- Outlook connection through Microsoft device sign-in and Graph, with refresh-token renewal and cancellation.
+- Provider picker, provider-aware status and send copy, clearer errors, and account-switch protections.
+- Compose, search, and refresh shortcuts; corrected About version.
+- Setup guide, font license notices, and repeatable test runner.
+
+## Credits
+
+The ring styling and Buddy character originate in the owner’s The Stupid Browser project. Three.js and helper modules include their [MIT license](dist/vendor/THREE-LICENSE). Inter and Newsreader include their [respective](dist/fonts/Inter-OFL.txt) [SIL Open Font Licenses](dist/fonts/Newsreader-OFL.txt). No license for the original app source is granted by these third-party notices.

@@ -5,7 +5,21 @@ struct MailFailure: LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
-struct MailCredentials: Codable { let email: String; let password: String }
+enum MailProvider: String, Codable {
+    case icloud, gmail, outlook
+    var title: String { switch self {case .icloud: return "iCloud";case .gmail: return "Gmail";case .outlook: return "Outlook"} }
+    var imapHost: String { self == .gmail ? "imap.gmail.com" : "imap.mail.me.com" }
+    var smtpHost: String { self == .gmail ? "smtp.gmail.com" : "smtp.mail.me.com" }
+}
+struct MailCredentials: Codable {
+    let email: String
+    let password: String
+    var provider: MailProvider? = nil
+    var clientID: String? = nil
+    var refreshToken: String? = nil
+    var expiresAt: Date? = nil
+    var kind: MailProvider { provider ?? .icloud }
+}
 struct MailRecord: Codable {
     let id: String
     let from: String
@@ -62,16 +76,17 @@ enum MailValidation {
     }
 }
 
-// Only fixed Apple endpoints are accepted. Credentials go through an anonymous pipe,
+// Only fixed provider endpoints are accepted. Credentials go through an anonymous pipe,
 // never through process arguments, environment variables, logs, or temporary files.
 final class MailTransport {
     func perform(credentials: MailCredentials, command: String? = nil, mailbox: Bool = true, sending: (recipient: String, file: URL)? = nil) throws -> Data {
+        guard credentials.kind != .outlook else {throw MailFailure(message:"Outlook requires Microsoft sign-in.")}
         let task = Process(), input = Pipe(), output = Pipe()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
         task.arguments = ["--disable", "--config", "-"]
         task.standardInput = input; task.standardOutput = output; task.standardError = FileHandle.nullDevice
         task.environment = ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory(), "LANG": "en_US.UTF-8"]
-        let url = sending == nil ? "imaps://imap.mail.me.com:993/" + (mailbox ? "INBOX" : "") : "smtp://smtp.mail.me.com:587"
+        let url = sending == nil ? "imaps://\(credentials.kind.imapHost):993/" + (mailbox ? "INBOX" : "") : "smtp://\(credentials.kind.smtpHost):587"
         var config = "silent\nshow-error\nconnect-timeout = 15\nmax-time = 90\nssl-reqd\ntlsv1.2\nproto = \"=imaps,smtp\"\n"
         config += "url = \(try MailValidation.quote(url))\nuser = \(try MailValidation.quote(credentials.email + ":" + credentials.password))\n"
         if let command { config += "request = \(try MailValidation.quote(command))\n" }
@@ -87,9 +102,9 @@ final class MailTransport {
         }
         task.waitUntilExit()
         guard task.terminationStatus == 0 else {
-            if task.terminationStatus == 67 { throw MailFailure(message: "iCloud rejected the sign-in. Check your primary iCloud address and generate a new app-specific password.") }
-            if sending != nil { throw MailFailure(message: "Sending was not confirmed. Your draft is safe. Check iCloud Sent before retrying, because the server may have accepted it.") }
-            throw MailFailure(message: "Could not reach iCloud securely. Check your internet connection and try again. Your mail has not been changed.")
+            if task.terminationStatus == 67 { throw MailFailure(message: "The provider rejected sign-in. Check the email address and generate a new app password.") }
+            if sending != nil { throw MailFailure(message: "Sending was not confirmed. Your draft is safe. Check your provider’s Sent folder before retrying, because the server may have accepted it.") }
+            throw MailFailure(message: "Could not reach your mail provider securely. Check your internet connection and try again. Your mail has not been changed.")
         }
         return data
     }
@@ -222,7 +237,7 @@ enum MIMEParser {
         let from = header(headers["from"] ?? "Unknown sender")
         let email = IMAPParser.capture("<([^>]+)>", from) ?? (MailValidation.address(from) ? from : "")
         let name = from.components(separatedBy: "<").first?.trimmingCharacters(in: CharacterSet(charactersIn: " \"")) ?? from
-        let body = limited ? "This message is too large for the current sync. Open it in iCloud Mail to read the full message and attachments." : !content.plain.isEmpty ? content.plain : !content.html.isEmpty ? content.html : "No readable text. This message may contain only attachments or encrypted content."
+        let body = limited ? "This message is too large for the current sync. Open it in your provider’s mail app to read the full message and attachments." : !content.plain.isEmpty ? content.plain : !content.html.isEmpty ? content.html : "No readable text. This message may contain only attachments or encrypted content."
         return MailRecord(id: id, from: name.isEmpty ? email : name, email: email, subject: header(headers["subject"] ?? "(No subject)"), body: body, time: headers["date"] ?? "", unread: !flags.lowercased().contains("\\seen"), star: flags.lowercased().contains("\\flagged"), newsletter: headers["list-id"] != nil || headers["list-unsubscribe"] != nil, attachmentCount: content.attachments, messageID: headers["message-id"] ?? "", inReplyTo: headers["in-reply-to"] ?? "")
     }
 }
@@ -230,11 +245,12 @@ enum MIMEParser {
 final class ICloudMail {
     let transport = MailTransport()
     func sync(_ credentials: MailCredentials) throws -> [MailRecord] {
-        let connection = try IMAPConnection(channel: TLSMailChannel())
+        guard credentials.kind != .outlook else {throw MailFailure(message:"Outlook requires Microsoft sign-in.")}
+        let connection = try IMAPConnection(channel: TLSMailChannel(host: credentials.kind.imapHost))
         defer { connection.close() }
         try connection.authenticate(credentials)
         let status = try connection.command("EXAMINE INBOX")
-        guard let validity = IMAPParser.capture("UIDVALIDITY\\s+([0-9]+)", String(decoding: status, as: UTF8.self)) else { throw MailFailure(message: "iCloud did not return a valid mailbox identifier. Please reconnect.") }
+        guard let validity = IMAPParser.capture("UIDVALIDITY\\s+([0-9]+)", String(decoding: status, as: UTF8.self)) else { throw MailFailure(message: "The mail server did not return a valid mailbox identifier. Please reconnect.") }
         let search = try connection.command("UID SEARCH ALL")
         let ids = Array(IMAPParser.search(search).suffix(40))
         if ids.isEmpty { return [] }
@@ -244,14 +260,14 @@ final class ICloudMail {
         for literal in try IMAPParser.literals(headers).reversed() {
             guard let uid = IMAPParser.capture("UID\\s+([0-9]+)", literal.prefix).flatMap(Int.init) else { continue }
             let size = IMAPParser.capture("RFC822.SIZE\\s+([0-9]+)", literal.prefix).flatMap(Int.init) ?? Int.max
-            records[uid] = MIMEParser.record(literal.data, id: "icloud:\(validity):\(uid)", flags: literal.prefix, limited: true)
+            records[uid] = MIMEParser.record(literal.data, id: "\(credentials.kind.rawValue):\(validity):\(uid)", flags: literal.prefix, limited: true)
             if size <= 1024*1024 && total + size <= 10*1024*1024 { bodyIDs.append(uid); total += size }
         }
         if !bodyIDs.isEmpty {
             let full = try connection.command("UID FETCH \(bodyIDs.map(String.init).joined(separator: ",")) (UID FLAGS BODY.PEEK[])")
             for literal in try IMAPParser.literals(full) {
                 guard let uid = IMAPParser.capture("UID\\s+([0-9]+)", literal.prefix).flatMap(Int.init) else { continue }
-                records[uid] = MIMEParser.record(literal.data, id: "icloud:\(validity):\(uid)", flags: literal.prefix)
+                records[uid] = MIMEParser.record(literal.data, id: "\(credentials.kind.rawValue):\(validity):\(uid)", flags: literal.prefix)
             }
         }
         guard records.count == ids.count else { throw MailFailure(message: "The inbox changed while syncing. Refresh again to get a complete snapshot.") }

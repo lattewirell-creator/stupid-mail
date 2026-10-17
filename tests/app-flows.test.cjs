@@ -24,5 +24,9 @@ const run=s=>vm.runInContext(s,context);
  await run("applySync({email:account,messages:[{id:'remote',from:'Jamie',email:'jamie@example.com',body:'After',subject:'Test',time:'2026-10-17'}]})");assert.equal(run('current===mails[0]'),true);assert.equal(run('current.body'),'After');
  run("window.useBuddyDraft('General suggestion',null)");assert.equal(elements.get('#to').value,'');assert.equal(elements.get('#body').value,'General suggestion');
  assert.equal(await run('window.flushDraft()'),true);
+ run("document.querySelector('#composer').close()");
+ await run("applySync({email:account,provider:'gmail',messages:[]})");assert.equal(elements.get('#account-state').textContent,'Gmail · local sorting');assert.ok(elements.get('#compose-note').textContent.includes('Gmail'));
+ await run("applySync({email:account,provider:'outlook',messages:[]})");assert.equal(elements.get('#account-state').textContent,'Outlook · local sorting');assert.ok(elements.get('#mode-label').textContent.includes('Outlook'));
+
  console.log('Passed snooze/undo, restore, unread, failed-save send blocking, send completion, refresh identity, and Buddy draft-context flows.');
 })().catch(e=>{console.error(e);process.exitCode=1});

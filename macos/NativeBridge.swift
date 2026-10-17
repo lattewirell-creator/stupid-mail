@@ -9,7 +9,7 @@ extension AppDelegate: WKScriptMessageHandler {
         switch action {
         case "status":
             let email=UserDefaults.standard.string(forKey:"icloudEmail") ?? ""
-            respond(id,data:["email":email,"connected": !email.isEmpty])
+            respond(id,data:["email":email,"connected": !email.isEmpty,"provider":UserDefaults.standard.string(forKey:"mailProvider") ?? "icloud"])
         case "readCache":
             let account=request["account"] as? String ?? ""
             cacheQueue.async {
@@ -25,7 +25,7 @@ extension AppDelegate: WKScriptMessageHandler {
             }
         case "connect": connectAccount(id)
         case "disconnect": disconnectAccount(id)
-        case "sync": runMail(id) { credentials in ["email":credentials.email,"messages":try self.jsonRecords(ICloudMail().sync(credentials))] }
+        case "sync": runMail(id) { credentials in ["email":credentials.email,"provider":credentials.kind.rawValue,"messages":try self.jsonRecords(credentials.kind == .outlook ? OutlookMail.sync(credentials) : ICloudMail().sync(credentials))] }
         case "send": confirmSend(id,request)
         case "buddyStatus": respond(id,data:buddyStatus())
         case "buddySettings": configureBuddy(id)
@@ -45,55 +45,56 @@ extension AppDelegate: WKScriptMessageHandler {
         mailBusy=true
         DispatchQueue.global(qos:.userInitiated).async {
             do{
-                guard let c=try MailKeychain.load() else {throw MailFailure(message:"Connect your iCloud account first.")}
+                guard var c=try MailKeychain.load() else {throw MailFailure(message:"Connect your mail account first.")}
+                if c.kind == .outlook { c=try OutlookMail.refreshed(c) }
                 let result=try work(c)
                 DispatchQueue.main.async {self.mailBusy=false;self.respond(id,data:result)}
             }catch{let text=error.localizedDescription;DispatchQueue.main.async{self.mailBusy=false;self.respond(id,error:text)}}
         }
     }
     @objc func accountMenu(){webView.evaluateJavaScript("document.getElementById('connect-account').click()",completionHandler:nil)}
-    func connectAccount(_ id:String){
+    func connectPasswordAccount(_ id:String,provider:MailProvider){
         guard !mailBusy,window.attachedSheet == nil else {respond(id,error:"Finish the current operation first.");return}
-        let alert=NSAlert();alert.messageText="Connect iCloud Mail"
-        alert.informativeText="Use your primary @icloud.com, @me.com, or @mac.com address and an app-specific password. Create one at account.apple.com → Sign-In and Security → App-Specific Passwords.\n\nThe password is saved in this Mac’s Keychain. The app reads your latest 40 inbox messages and sends only when you confirm Send. Sorting and drafts stay on this Mac."
+        let alert=NSAlert();alert.messageText="Connect \(provider.title) Mail"
+        alert.informativeText=provider == .icloud ? "Use your primary iCloud address and an Apple app-specific password from account.apple.com. Your password is stored in macOS Keychain. Latest 40 inbox messages; local sorting and drafts." : "Use your full Gmail or Google Workspace address and a 16-letter Google app password. Enable 2-Step Verification, then create one at myaccount.google.com/apppasswords. Some work/school or protected accounts do not allow app passwords. Your password is stored in macOS Keychain."
         let form=NSView(frame:NSRect(x:0,y:0,width:400,height:112))
-        let email=NSTextField(frame:NSRect(x:0,y:75,width:400,height:26));email.placeholderString="you@icloud.com";email.stringValue=UserDefaults.standard.string(forKey:"icloudEmail") ?? ""
+        let email=NSTextField(frame:NSRect(x:0,y:75,width:400,height:26));email.placeholderString=provider == .icloud ? "you@icloud.com" : "you@gmail.com";email.stringValue=UserDefaults.standard.string(forKey:"icloudEmail") ?? ""
         let password=NSSecureTextField(frame:NSRect(x:0,y:32,width:400,height:26));password.placeholderString="App-specific password (xxxx-xxxx-xxxx-xxxx)"
-        let note=NSTextField(labelWithString:"Do not use your main Apple Account password.");note.frame=NSRect(x:0,y:0,width:400,height:20);note.font = .systemFont(ofSize:11)
+        let note=NSTextField(labelWithString:"Use an app password, not your normal account password.");note.frame=NSRect(x:0,y:0,width:400,height:20);note.font = .systemFont(ofSize:11)
         form.addSubview(email);form.addSubview(password);form.addSubview(note);alert.accessoryView=form
-        alert.addButton(withTitle:"Connect");alert.addButton(withTitle:"Cancel");alert.addButton(withTitle:"Open Apple Account")
+        alert.addButton(withTitle:"Connect");alert.addButton(withTitle:"Cancel");alert.addButton(withTitle:"Create app password")
         alert.beginSheetModal(for:window){response in
-            if response == .alertThirdButtonReturn {NSWorkspace.shared.open(URL(string:"https://account.apple.com/")!);self.respond(id,error:"Create an app-specific password, then click Connect iCloud again.");return}
+            if response == .alertThirdButtonReturn {NSWorkspace.shared.open(URL(string:provider == .icloud ? "https://account.apple.com/" : "https://myaccount.google.com/apppasswords")!);self.respond(id,error:"Create an app-specific password, then connect again.");return}
             guard response == .alertFirstButtonReturn else {self.respond(id,error:"Cancelled.");return}
-            let address=email.stringValue.trimmingCharacters(in:.whitespacesAndNewlines).lowercased(),secret=password.stringValue.trimmingCharacters(in:.whitespacesAndNewlines)
+            let address=email.stringValue.trimmingCharacters(in:.whitespacesAndNewlines).lowercased(),secret=password.stringValue.trimmingCharacters(in:.whitespacesAndNewlines).replacingOccurrences(of:" ",with:"")
             password.stringValue=""
-            guard MailValidation.iCloudAddress(address),MailValidation.appPassword(secret) else {self.respond(id,error:"Use your primary iCloud address and a 16-letter app-specific password generated by Apple.");return}
+            guard (provider == .icloud ? MailValidation.iCloudAddress(address) : MailValidation.address(address)),MailValidation.appPassword(secret) else {self.respond(id,error:"Check your address and use a 16-letter app password from your provider.");return}
             self.mailBusy=true
             DispatchQueue.global(qos:.userInitiated).async{
                 do{
-                    let c=MailCredentials(email:address,password:secret)
+                    let c=MailCredentials(email:address,password:secret,provider:provider)
                     let messages=try self.jsonRecords(ICloudMail().sync(c));try MailKeychain.save(c)
-                    UserDefaults.standard.set(address,forKey:"icloudEmail")
-                    DispatchQueue.main.async{self.mailBusy=false;self.respond(id,data:["email":address,"messages":messages])}
+                    UserDefaults.standard.set(address,forKey:"icloudEmail");UserDefaults.standard.set(provider.rawValue,forKey:"mailProvider")
+                    DispatchQueue.main.async{self.mailBusy=false;self.respond(id,data:["email":address,"provider":provider.rawValue,"messages":messages])}
                 }catch{let text=error.localizedDescription;DispatchQueue.main.async{self.mailBusy=false;self.respond(id,error:text)}}
             }
         }
     }
     func disconnectAccount(_ id:String){
         guard !mailBusy,window.attachedSheet == nil else {respond(id,error:"Wait for the current operation to finish.");return}
-        let alert=NSAlert();alert.messageText="Disconnect iCloud?";alert.informativeText="This removes the saved password from this Mac. Your mail on iCloud is unchanged. Local drafts and sorting are kept for when you reconnect.";alert.addButton(withTitle:"Disconnect");alert.addButton(withTitle:"Cancel")
+        let alert=NSAlert();alert.messageText="Disconnect this account?";alert.informativeText="This removes the saved sign-in from this Mac. Your mail on the server is unchanged. Local drafts and sorting are kept for when you reconnect.";alert.addButton(withTitle:"Disconnect");alert.addButton(withTitle:"Cancel")
         alert.beginSheetModal(for:window){result in
             guard result == .alertFirstButtonReturn else {self.respond(id,error:"Cancelled.");return}
-            do{try MailKeychain.remove();UserDefaults.standard.removeObject(forKey:"icloudEmail");self.respond(id)}catch{self.respond(id,error:error.localizedDescription)}
+            do{try MailKeychain.remove();UserDefaults.standard.removeObject(forKey:"icloudEmail");UserDefaults.standard.removeObject(forKey:"mailProvider");self.respond(id)}catch{self.respond(id,error:error.localizedDescription)}
         }
     }
     func confirmSend(_ id:String,_ request:[String:Any]){
         guard !mailBusy,window.attachedSheet == nil else {respond(id,error:"Finish the current operation first.");return}
         guard let to=request["to"] as? String,let subject=request["subject"] as? String,let body=request["body"] as? String,MailValidation.address(to),subject.utf8.count<=900,body.utf8.count<=1024*1024 else {respond(id,error:"Check the recipient and message length.");return}
-        let alert=NSAlert();alert.messageText="Send this email?";alert.informativeText="To: \(to)\nSubject: \(subject)\n\nThis will send a real email from your connected iCloud account.";alert.addButton(withTitle:"Send");alert.addButton(withTitle:"Cancel")
+        let alert=NSAlert();alert.messageText="Send this email?";alert.informativeText="To: \(to)\nSubject: \(subject)\n\nThis will send a real email from your connected mail account.";alert.addButton(withTitle:"Send");alert.addButton(withTitle:"Cancel")
         alert.beginSheetModal(for:window){result in
             guard result == .alertFirstButtonReturn else {self.respond(id,error:"Cancelled.");return}
-            self.runMail(id){ c in let messageID = try ICloudMail().send(c,to:to,subject:subject,body:body,replyTo:request["replyTo"] as? String);return ["sent":true,"messageID":messageID] }
+            self.runMail(id){ c in let messageID = try c.kind == .outlook ? OutlookMail.send(c,to:to,subject:subject,body:body,replyTo:request["replyTo"] as? String) : ICloudMail().send(c,to:to,subject:subject,body:body,replyTo:request["replyTo"] as? String);return ["sent":true,"messageID":messageID] }
         }
     }
     func buddyStatus()->[String:Any]{
