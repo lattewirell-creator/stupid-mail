@@ -19,6 +19,12 @@ Choose **Connect mail** and select:
 | iCloud | Primary iCloud address and Apple app-specific password |
 | Gmail / Workspace | Full address and Google app password; requires 2-Step Verification and account policy support |
 | Outlook / Hotmail / Microsoft 365 | Microsoft browser sign-in; this build requires your own Microsoft application client ID |
+| Yahoo / AOL | Full address and a 16-letter app password from the account's security page |
+| Fastmail | Full address and an app password with IMAP/SMTP access |
+| Zoho Mail (zoho.com) | Full address and an app-specific password; turn on IMAP in Zoho Mail |
+| GMX | Full address; turn on IMAP in GMX settings (app password if two-factor is on) |
+| Proton Mail | Through Proton Mail Bridge (paid Proton plans): set Bridge's IMAP and SMTP to SSL and use the Bridge password |
+| Any other service | Choose **Other mail service** and enter its IMAP (SSL/TLS) and SMTP (SSL/TLS or STARTTLS) servers |
 
 Follow the [setup guide](docs/accounts.md), including Outlook app-registration steps. One account is active at a time. Connecting another replaces its saved sign-in; drafts and sorting remain separate by address. Normal account passwords should never be entered in the app.
 
@@ -42,7 +48,7 @@ Questions go to your selected provider. Email content is included only when **In
 
 ## Storage and limits
 
-Passwords and AI keys are in macOS Keychain. Microsoft access and refresh tokens also stay in Keychain. Tokens and passwords never cross into the web interface. Provider endpoints are fixed; HTTPS/TLS certificates are validated.
+Passwords and AI keys are in macOS Keychain. Microsoft access and refresh tokens also stay in Keychain. Tokens and passwords never cross into the web interface. Provider endpoints are fixed for every listed provider; with **Other mail service** the app connects only to the servers you enter, always encrypted. TLS certificates are validated.
 
 Drafts, cached mail, and local decisions are stored per address in private Application Support files, with atomic writes. The cache is not additionally encrypted by the app. Disconnect removes saved credentials, while local drafts and mail remain for reconnecting. Disconnect does not revoke Microsoft consent.
 

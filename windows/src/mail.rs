@@ -20,12 +20,81 @@ pub fn fail<T>(text: &str) -> Result<T> { Err(MailFailure(text.to_string())) }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Provider { Icloud, Gmail, Outlook }
+pub enum Provider { Icloud, Gmail, Outlook, Yahoo, Aol, Fastmail, Zoho, Gmx, Proton, Custom }
+pub const ALL: [Provider; 10] = [Provider::Icloud, Provider::Gmail, Provider::Outlook, Provider::Yahoo, Provider::Aol, Provider::Fastmail, Provider::Zoho, Provider::Gmx, Provider::Proton, Provider::Custom];
 impl Provider {
-    pub fn title(self) -> &'static str { match self { Provider::Icloud => "iCloud", Provider::Gmail => "Gmail", Provider::Outlook => "Outlook" } }
-    pub fn raw(self) -> &'static str { match self { Provider::Icloud => "icloud", Provider::Gmail => "gmail", Provider::Outlook => "outlook" } }
-    pub fn imap_host(self) -> &'static str { if self == Provider::Gmail { "imap.gmail.com" } else { "imap.mail.me.com" } }
-    pub fn smtp_host(self) -> &'static str { if self == Provider::Gmail { "smtp.gmail.com" } else { "smtp.mail.me.com" } }
+    pub fn title(self) -> &'static str {
+        match self { Provider::Icloud => "iCloud", Provider::Gmail => "Gmail", Provider::Outlook => "Outlook", Provider::Yahoo => "Yahoo", Provider::Aol => "AOL",
+            Provider::Fastmail => "Fastmail", Provider::Zoho => "Zoho", Provider::Gmx => "GMX", Provider::Proton => "Proton Mail", Provider::Custom => "Other" }
+    }
+    pub fn raw(self) -> &'static str {
+        match self { Provider::Icloud => "icloud", Provider::Gmail => "gmail", Provider::Outlook => "outlook", Provider::Yahoo => "yahoo", Provider::Aol => "aol",
+            Provider::Fastmail => "fastmail", Provider::Zoho => "zoho", Provider::Gmx => "gmx", Provider::Proton => "proton", Provider::Custom => "custom" }
+    }
+    pub fn menu_title(self) -> &'static str {
+        match self {
+            Provider::Icloud => "iCloud — Apple app password", Provider::Gmail => "Gmail — Google app password", Provider::Outlook => "Outlook — Microsoft sign-in",
+            Provider::Yahoo => "Yahoo — app password", Provider::Aol => "AOL — app password", Provider::Fastmail => "Fastmail — app password",
+            Provider::Zoho => "Zoho — app-specific password", Provider::Gmx => "GMX — password or app password", Provider::Proton => "Proton Mail — through Proton Mail Bridge",
+            Provider::Custom => "Other mail service — enter its servers",
+        }
+    }
+    pub fn password_page(self) -> Option<&'static str> {
+        match self {
+            Provider::Icloud => Some("https://account.apple.com/"), Provider::Gmail => Some("https://myaccount.google.com/apppasswords"), Provider::Yahoo => Some("https://login.yahoo.com/account/security"),
+            Provider::Aol => Some("https://login.aol.com/account/security"), Provider::Fastmail => Some("https://app.fastmail.com/settings/security/apps"), Provider::Zoho => Some("https://accounts.zoho.com/home#security/app_password"),
+            Provider::Gmx => Some("https://www.gmx.com/"), Provider::Proton => Some("https://proton.me/mail/bridge"), _ => None,
+        }
+    }
+    pub fn help(self) -> &'static str {
+        match self {
+            Provider::Icloud => "Use your primary iCloud address and an Apple app-specific password from account.apple.com.",
+            Provider::Gmail => "Use your full Gmail or Google Workspace address and a 16-letter Google app password. Enable 2-Step Verification, then create one at myaccount.google.com/apppasswords. Some work/school or protected accounts do not allow app passwords.",
+            Provider::Yahoo => "Use your Yahoo address and a 16-letter app password: Yahoo Account → Account security → Generate app password.",
+            Provider::Aol => "Use your AOL address and a 16-letter app password: AOL Account → Account security → Generate app password.",
+            Provider::Fastmail => "Use your Fastmail address and an app password with Mail (IMAP/SMTP) access: Settings → Privacy & Security → App passwords.",
+            Provider::Zoho => "Use your Zoho Mail address and an app-specific password (Zoho Accounts → Security → App passwords). IMAP access must be on in Zoho Mail settings. For zoho.eu or other regions, choose Other mail service.",
+            Provider::Gmx => "Turn on POP3 & IMAP access in GMX settings first. Use your GMX address and, if two-factor authentication is on, an app password.",
+            Provider::Proton => "Proton only lets other apps in through Proton Mail Bridge (paid Proton plans). Install Bridge, sign in, set its IMAP and SMTP connection mode to SSL (Bridge → Settings → Advanced), and use the Bridge password it shows, not your Proton password. Keep Bridge running.",
+            Provider::Custom => "Enter your provider's IMAP (incoming) and SMTP (outgoing) servers. Connections always use encryption (TLS); IMAP needs SSL/TLS, usually port 993.",
+            Provider::Outlook => "",
+        }
+    }
+    pub fn valid_password(self, v: &str) -> bool {
+        match self {
+            Provider::Icloud | Provider::Gmail | Provider::Yahoo | Provider::Aol => validation::app_password(v),
+            Provider::Fastmail => v.len() == 16 && v.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
+            Provider::Zoho => (12..=16).contains(&v.len()) && v.chars().all(|c| c.is_ascii_alphanumeric()),
+            _ => (8..=256).contains(&v.chars().count()) && !v.chars().any(|c| (c as u32) < 32 || c as u32 == 127),
+        }
+    }
+}
+
+/// Where a password account's mail lives. Presets are fixed per provider; "Other" uses what you entered.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Server { pub imap_host: String, pub imap_port: u16, pub smtp_host: String, pub smtp_port: u16, #[serde(rename = "smtpImplicitTLS")] pub smtp_implicit_tls: bool }
+impl Server {
+    fn new(imap: &str, ip: u16, smtp: &str, sp: u16, implicit: bool) -> Server { Server { imap_host: imap.into(), imap_port: ip, smtp_host: smtp.into(), smtp_port: sp, smtp_implicit_tls: implicit } }
+    pub fn preset(p: Provider, email: &str) -> Option<Server> {
+        let domain = email.rsplit('@').next().unwrap_or("").to_lowercase();
+        Some(match p {
+            Provider::Icloud => Server::new("imap.mail.me.com", 993, "smtp.mail.me.com", 587, false),
+            Provider::Gmail => Server::new("imap.gmail.com", 993, "smtp.gmail.com", 587, false),
+            Provider::Yahoo => Server::new("imap.mail.yahoo.com", 993, "smtp.mail.yahoo.com", 465, true),
+            Provider::Aol => Server::new("imap.aol.com", 993, "smtp.aol.com", 465, true),
+            Provider::Fastmail => Server::new("imap.fastmail.com", 993, "smtp.fastmail.com", 465, true),
+            Provider::Zoho => Server::new("imap.zoho.com", 993, "smtp.zoho.com", 465, true),
+            Provider::Gmx => { let de = ["gmx.net", "gmx.de", "gmx.at", "gmx.ch"].contains(&domain.as_str());
+                Server::new(if de { "imap.gmx.net" } else { "imap.gmx.com" }, 993, if de { "mail.gmx.net" } else { "mail.gmx.com" }, 587, false) }
+            Provider::Proton => Server::new("127.0.0.1", 1143, "127.0.0.1", 1025, true),
+            Provider::Outlook | Provider::Custom => return None,
+        })
+    }
+    /// A server you typed in: a plain host name and a normal port, nothing else.
+    pub fn valid(host: &str, port: u16) -> bool {
+        port > 0 && host.len() <= 253 && Regex::new(r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$").unwrap().is_match(host)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -38,9 +107,12 @@ pub struct Credentials {
     pub client_id: Option<String>,
     pub refresh_token: Option<String>,
     pub expires_at: Option<i64>, // seconds since 1970
+    #[serde(default)]
+    pub server: Option<Server>, // only for "Other"
 }
 impl Credentials {
     pub fn kind(&self) -> Provider { self.provider.unwrap_or(Provider::Icloud) }
+    pub fn mail_server(&self) -> Option<Server> { self.server.clone().or_else(|| Server::preset(self.kind(), &self.email)) }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -90,8 +162,8 @@ pub fn capture(pattern: &str, value: &str) -> Option<String> {
 /* ---------------- IMAP ---------------- */
 /// The connection to the server (TLS in the app; recorded replies in tests).
 pub struct Channel<S: Read + Write> { stream: S, buffer: Vec<u8> }
-fn tls(host: &str) -> Result<native_tls::TlsStream<TcpStream>> {
-        let addr = (host, 993).to_socket_addrs().ok().and_then(|mut a| a.next())
+fn tls(host: &str, port: u16) -> Result<native_tls::TlsStream<TcpStream>> {
+        let addr = (host, port).to_socket_addrs().ok().and_then(|mut a| a.next())
             .ok_or_else(|| MailFailure("The mail server did not respond. Check your internet connection and try again.".into()))?;
         let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(20))
             .map_err(|_| MailFailure("The mail server did not respond. Check your internet connection and try again.".into()))?;
@@ -127,7 +199,7 @@ impl<S: Read + Write> Channel<S> {
 }
 
 pub struct Imap<S: Read + Write> { channel: Channel<S>, sequence: u32 }
-pub fn connect(host: &str) -> Result<Imap<native_tls::TlsStream<TcpStream>>> { Imap::new(tls(host)?) }
+pub fn connect(host: &str, port: u16) -> Result<Imap<native_tls::TlsStream<TcpStream>>> { Imap::new(tls(host, port)?) }
 impl<S: Read + Write> Imap<S> {
     pub fn new(stream: S) -> Result<Imap<S>> {
         let mut channel = Channel { stream, buffer: Vec::new() };
@@ -304,7 +376,8 @@ pub fn record(data: &[u8], id: &str, flags: &str, limited: bool) -> MailRecord {
 /* ---------------- iCloud / Gmail ---------------- */
 pub fn sync(c: &Credentials) -> Result<Vec<MailRecord>> {
     if c.kind() == Provider::Outlook { return fail("Outlook requires Microsoft sign-in."); }
-    let mut imap = connect(c.kind().imap_host())?;
+    let server = c.mail_server().ok_or_else(|| MailFailure("Connect your mail account again.".into()))?;
+    let mut imap = connect(&server.imap_host, server.imap_port)?;
     imap.authenticate(c)?;
     let status = imap.command("EXAMINE INBOX")?;
     let validity = capture(r"UIDVALIDITY\s+([0-9]+)", &String::from_utf8_lossy(&status))
@@ -364,8 +437,10 @@ pub fn send(c: &Credentials, to: &str, subject: &str, body: &str, reply_to: Opti
     let data = outgoing(&c.email, to, subject, body, reply_to)?;
     let envelope = lettre::address::Envelope::new(Some(c.email.parse().map_err(|_| MailFailure("Invalid sender address.".into()))?), vec![to.parse().map_err(|_| MailFailure("Invalid recipient address.".into()))?])
         .map_err(|_| MailFailure("Check the recipient address.".into()))?;
-    let transport = lettre::SmtpTransport::starttls_relay(c.kind().smtp_host())
-        .map_err(|_| MailFailure("Could not reach your mail provider securely.".into()))?
+    let server = c.mail_server().ok_or_else(|| MailFailure("Connect your mail account again.".into()))?;
+    let builder = if server.smtp_implicit_tls { lettre::SmtpTransport::relay(&server.smtp_host) } else { lettre::SmtpTransport::starttls_relay(&server.smtp_host) };
+    let transport = builder.map_err(|_| MailFailure("Could not reach your mail provider securely.".into()))?
+        .port(server.smtp_port)
         .credentials(Login::new(c.email.clone(), c.password.clone()))
         .timeout(Some(Duration::from_secs(90)))
         .build();

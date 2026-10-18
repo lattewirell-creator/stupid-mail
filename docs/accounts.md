@@ -43,3 +43,29 @@ Microsoft references: [Register an app](https://learn.microsoft.com/en-us/entra/
 - The app confirms before sending. Server acceptance does not guarantee delivery. If confirmation fails, check the provider’s Sent folder before retrying.
 - Outlook requests a sent copy through Graph; the app’s Sent here section remains local. iCloud/Gmail sending uses SMTP and does not explicitly upload a separate Sent copy.
 - Provider connectivity is implemented but must be verified with your own account. Automated fixtures do not prove successful live authentication.
+
+
+## More providers
+
+Choose the provider in **Connect mail**. Each one uses its own fixed, encrypted servers:
+
+| Provider | Incoming (IMAP, SSL/TLS) | Outgoing (SMTP) | Password |
+| --- | --- | --- | --- |
+| Yahoo | imap.mail.yahoo.com:993 | smtp.mail.yahoo.com:465 (SSL/TLS) | App password: Yahoo Account → Account security → Generate app password |
+| AOL | imap.aol.com:993 | smtp.aol.com:465 (SSL/TLS) | App password: AOL Account → Account security |
+| Fastmail | imap.fastmail.com:993 | smtp.fastmail.com:465 (SSL/TLS) | App password with Mail (IMAP/SMTP) access |
+| Zoho Mail | imap.zoho.com:993 | smtp.zoho.com:465 (SSL/TLS) | App-specific password; IMAP on in Zoho Mail. For zoho.eu, zoho.in and other regions use **Other mail service** with your region's servers |
+| GMX | imap.gmx.com / imap.gmx.net:993 (by your address) | mail.gmx.com / mail.gmx.net:587 (STARTTLS) | Turn on POP3 & IMAP in GMX settings; app password if two-factor is on |
+| Proton Mail | Proton Mail Bridge, 127.0.0.1:1143 | Bridge, 127.0.0.1:1025 | Bridge password (not your Proton password) |
+
+### Proton Mail
+Proton encrypts your mailbox, so no outside app can read it directly. Proton Mail Bridge (included with paid Proton plans) runs on your computer and lets mail apps in:
+1. Install Proton Mail Bridge from proton.me/mail/bridge and sign in.
+2. In Bridge → Settings → Advanced settings → Connection mode, choose **SSL** for both IMAP and SMTP.
+3. In The Stupid Mail choose **Proton Mail** and enter your address and the password Bridge shows for it.
+Keep Bridge running while you use The Stupid Mail. Free Proton accounts can't use Bridge.
+
+### Any other mail service
+Choose **Other mail service** and enter the incoming (IMAP) and outgoing (SMTP) servers from your provider's help pages. The app only connects with encryption: IMAP over SSL/TLS (usually port 993), SMTP over SSL/TLS (usually 465) or STARTTLS (usually 587). Use an app password if your provider offers one.
+
+Thunderbird is a mail app rather than a mail service: use the provider your Thunderbird account belongs to (or **Other mail service** with the same server settings Thunderbird shows under Account Settings → Server Settings).

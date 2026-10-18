@@ -65,7 +65,7 @@ fn literal_cannot_spoof_protocol() {
     assert_eq!(parsed.len(), 1); assert_eq!(parsed[0].data, poison.as_bytes()); assert!(parsed[0].prefix.contains("UID 9"));
     assert_eq!(client.channel.stream.sent, b"M1 UID FETCH 9 (UID BODY.PEEK[])\r\n");
     let mut rejected = Imap::new(Fixture::new(b"* OK ready\r\nM1 NO authentication failed\r\n")).unwrap();
-    let c = Credentials { email: "test@icloud.com".into(), password: "abcd-efgh-ijkl-mnop".into(), provider: None, client_id: None, refresh_token: None, expires_at: None };
+    let c = Credentials { email: "test@icloud.com".into(), password: "abcd-efgh-ijkl-mnop".into(), provider: None, client_id: None, refresh_token: None, expires_at: None, server: None };
     assert!(rejected.authenticate(&c).is_err());
 }
 #[test]

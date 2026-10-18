@@ -5,11 +5,80 @@ struct MailFailure: LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
-enum MailProvider: String, Codable {
-    case icloud, gmail, outlook
-    var title: String { switch self {case .icloud: return "iCloud";case .gmail: return "Gmail";case .outlook: return "Outlook"} }
-    var imapHost: String { self == .gmail ? "imap.gmail.com" : "imap.mail.me.com" }
-    var smtpHost: String { self == .gmail ? "smtp.gmail.com" : "smtp.mail.me.com" }
+enum MailProvider: String, Codable, CaseIterable {
+    case icloud, gmail, outlook, yahoo, aol, fastmail, zoho, gmx, proton, custom
+    var title: String {
+        switch self {
+        case .icloud: return "iCloud"; case .gmail: return "Gmail"; case .outlook: return "Outlook"; case .yahoo: return "Yahoo"; case .aol: return "AOL"
+        case .fastmail: return "Fastmail"; case .zoho: return "Zoho"; case .gmx: return "GMX"; case .proton: return "Proton Mail"; case .custom: return "Other"
+        }
+    }
+    /// What the connect menu shows.
+    var menuTitle: String {
+        switch self {
+        case .icloud: return "iCloud — Apple app password"; case .gmail: return "Gmail — Google app password"; case .outlook: return "Outlook — Microsoft sign-in"
+        case .yahoo: return "Yahoo — app password"; case .aol: return "AOL — app password"; case .fastmail: return "Fastmail — app password"
+        case .zoho: return "Zoho — app-specific password"; case .gmx: return "GMX — password or app password"; case .proton: return "Proton Mail — through Proton Mail Bridge"
+        case .custom: return "Other mail service — enter its servers"
+        }
+    }
+    var imapHost: String { MailServer.preset(self, email: "")?.imapHost ?? "" }
+    var smtpHost: String { MailServer.preset(self, email: "")?.smtpHost ?? "" }
+    /// Where to create the app password (or set up the Bridge).
+    var passwordPage: String? {
+        switch self {
+        case .icloud: return "https://account.apple.com/"; case .gmail: return "https://myaccount.google.com/apppasswords"; case .yahoo: return "https://login.yahoo.com/account/security"
+        case .aol: return "https://login.aol.com/account/security"; case .fastmail: return "https://app.fastmail.com/settings/security/apps"; case .zoho: return "https://accounts.zoho.com/home#security/app_password"
+        case .gmx: return "https://www.gmx.com/"; case .proton: return "https://proton.me/mail/bridge"; default: return nil
+        }
+    }
+    var help: String {
+        switch self {
+        case .icloud: return "Use your primary iCloud address and an Apple app-specific password from account.apple.com."
+        case .gmail: return "Use your full Gmail or Google Workspace address and a 16-letter Google app password. Enable 2-Step Verification, then create one at myaccount.google.com/apppasswords. Some work/school or protected accounts do not allow app passwords."
+        case .yahoo: return "Use your Yahoo address and a 16-letter app password: Yahoo Account → Account security → Generate app password."
+        case .aol: return "Use your AOL address and a 16-letter app password: AOL Account → Account security → Generate app password."
+        case .fastmail: return "Use your Fastmail address and an app password with Mail (IMAP/SMTP) access: Settings → Privacy & Security → App passwords."
+        case .zoho: return "Use your Zoho Mail address and an app-specific password (Zoho Accounts → Security → App passwords). IMAP access must be on in Zoho Mail settings. For zoho.eu or other regions, choose Other mail service."
+        case .gmx: return "Turn on POP3 & IMAP access in GMX settings first. Use your GMX address and, if two-factor authentication is on, an app password."
+        case .proton: return "Proton only lets other apps in through Proton Mail Bridge (paid Proton plans). Install Bridge, sign in, set its IMAP and SMTP connection mode to SSL (Bridge → Settings → Advanced), and use the Bridge password it shows, not your Proton password. Keep Bridge running."
+        case .custom: return "Enter your provider's IMAP (incoming) and SMTP (outgoing) servers. Connections always use encryption (TLS); IMAP needs SSL/TLS, usually port 993."
+        case .outlook: return ""
+        }
+    }
+    func validPassword(_ value: String) -> Bool {
+        switch self {
+        case .icloud, .gmail, .yahoo, .aol: return MailValidation.appPassword(value)
+        case .fastmail: return value.range(of: #"^[a-z0-9]{16}$"#, options: .regularExpression) != nil
+        case .zoho: return value.range(of: #"^[A-Za-z0-9]{12,16}$"#, options: .regularExpression) != nil
+        default: return (8...256).contains(value.count) && !value.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 })
+        }
+    }
+}
+/// Where a password account's mail lives. Presets are fixed per provider; "Other" uses what you entered.
+struct MailServer: Codable, Equatable {
+    let imapHost: String; let imapPort: Int; let smtpHost: String; let smtpPort: Int
+    var smtpImplicitTLS: Bool   // SSL/TLS from the start (465, Proton Bridge in SSL mode); otherwise STARTTLS
+    static func preset(_ p: MailProvider, email: String) -> MailServer? {
+        let domain = email.components(separatedBy: "@").last?.lowercased() ?? ""
+        switch p {
+        case .icloud: return MailServer(imapHost: "imap.mail.me.com", imapPort: 993, smtpHost: "smtp.mail.me.com", smtpPort: 587, smtpImplicitTLS: false)
+        case .gmail: return MailServer(imapHost: "imap.gmail.com", imapPort: 993, smtpHost: "smtp.gmail.com", smtpPort: 587, smtpImplicitTLS: false)
+        case .yahoo: return MailServer(imapHost: "imap.mail.yahoo.com", imapPort: 993, smtpHost: "smtp.mail.yahoo.com", smtpPort: 465, smtpImplicitTLS: true)
+        case .aol: return MailServer(imapHost: "imap.aol.com", imapPort: 993, smtpHost: "smtp.aol.com", smtpPort: 465, smtpImplicitTLS: true)
+        case .fastmail: return MailServer(imapHost: "imap.fastmail.com", imapPort: 993, smtpHost: "smtp.fastmail.com", smtpPort: 465, smtpImplicitTLS: true)
+        case .zoho: return MailServer(imapHost: "imap.zoho.com", imapPort: 993, smtpHost: "smtp.zoho.com", smtpPort: 465, smtpImplicitTLS: true)
+        case .gmx:
+            let german = ["gmx.net", "gmx.de", "gmx.at", "gmx.ch"].contains(domain)
+            return MailServer(imapHost: german ? "imap.gmx.net" : "imap.gmx.com", imapPort: 993, smtpHost: german ? "mail.gmx.net" : "mail.gmx.com", smtpPort: 587, smtpImplicitTLS: false)
+        case .proton: return MailServer(imapHost: "127.0.0.1", imapPort: 1143, smtpHost: "127.0.0.1", smtpPort: 1025, smtpImplicitTLS: true)
+        case .outlook, .custom: return nil
+        }
+    }
+    /// A server you typed in: a plain host name and a normal port, nothing else.
+    static func valid(host: String, port: Int) -> Bool {
+        (1...65535).contains(port) && host.utf8.count <= 253 && host.range(of: #"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$"#, options: .regularExpression) != nil
+    }
 }
 struct MailCredentials: Codable {
     let email: String
@@ -18,7 +87,9 @@ struct MailCredentials: Codable {
     var clientID: String? = nil
     var refreshToken: String? = nil
     var expiresAt: Date? = nil
+    var server: MailServer? = nil   // only for "Other"
     var kind: MailProvider { provider ?? .icloud }
+    var mailServer: MailServer? { server ?? MailServer.preset(kind, email: email) }
 }
 struct MailRecord: Codable {
     let id: String
@@ -86,8 +157,9 @@ final class MailTransport {
         task.arguments = ["--disable", "--config", "-"]
         task.standardInput = input; task.standardOutput = output; task.standardError = FileHandle.nullDevice
         task.environment = ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory(), "LANG": "en_US.UTF-8"]
-        let url = sending == nil ? "imaps://\(credentials.kind.imapHost):993/" + (mailbox ? "INBOX" : "") : "smtp://\(credentials.kind.smtpHost):587"
-        var config = "silent\nshow-error\nconnect-timeout = 15\nmax-time = 90\nssl-reqd\ntlsv1.2\nproto = \"=imaps,smtp\"\n"
+        guard let server = credentials.mailServer else {throw MailFailure(message:"Connect your mail account again.")}
+        let url = sending == nil ? "imaps://\(server.imapHost):\(server.imapPort)/" + (mailbox ? "INBOX" : "") : (server.smtpImplicitTLS ? "smtps" : "smtp") + "://\(server.smtpHost):\(server.smtpPort)"
+        var config = "silent\nshow-error\nconnect-timeout = 15\nmax-time = 90\nssl-reqd\ntlsv1.2\nproto = \"=imaps,smtp,smtps\"\n"
         config += "url = \(try MailValidation.quote(url))\nuser = \(try MailValidation.quote(credentials.email + ":" + credentials.password))\n"
         if let command { config += "request = \(try MailValidation.quote(command))\n" }
         if let sending {
@@ -246,7 +318,8 @@ final class ICloudMail {
     let transport = MailTransport()
     func sync(_ credentials: MailCredentials) throws -> [MailRecord] {
         guard credentials.kind != .outlook else {throw MailFailure(message:"Outlook requires Microsoft sign-in.")}
-        let connection = try IMAPConnection(channel: TLSMailChannel(host: credentials.kind.imapHost))
+        guard let server = credentials.mailServer else { throw MailFailure(message: "Connect your mail account again.") }
+        let connection = try IMAPConnection(channel: TLSMailChannel(host: server.imapHost, port: server.imapPort))
         defer { connection.close() }
         try connection.authenticate(credentials)
         let status = try connection.command("EXAMINE INBOX")

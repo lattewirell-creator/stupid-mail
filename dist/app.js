@@ -28,7 +28,7 @@ function rememberChange(message){undoAction={account,id:message.id,before:struct
 function undoChange(){if(!undoAction||undoAction.account!==account)return;const index=mails.findIndex(m=>m.id===undoAction.id);if(index>=0){mails[index]=undoAction.before;if(current?.id===undoAction.id)current=mails[index];session?.handled.delete(undoAction.id);save();render();toast('Last change undone.')}undoAction=null;$('#undo-change').hidden=true}
 function toast(text){$('#toast').textContent=text;$('#toast').style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>$('#toast').style.display='none',6500)}
 function showStatus(text,error=false){$('#connection-status').textContent=text;$('#connection-status').classList.toggle('error',error)}
-const providerTitle=()=>({icloud:'iCloud',gmail:'Gmail',outlook:'Outlook'}[provider]||'Mail');
+const providerTitle=()=>({icloud:'iCloud',gmail:'Gmail',outlook:'Outlook',yahoo:'Yahoo',aol:'AOL',fastmail:'Fastmail',zoho:'Zoho',gmx:'GMX',proton:'Proton Mail',custom:'Mail'}[provider]||'Mail');
 const folders=[['quiet','◉','Quiet Inbox'],['inbox','▣','All mail'],['waiting','◷','Follow-up Radar'],['snoozed','☾','Snoozed'],['starred','☆','Starred'],['sent','↗','Sent here'],['drafts','▤','Drafts'],['archive','▧','Put away'],['trash','♧','Hidden']];
 const folderMail=key=>mails.filter(m=>key==='quiet'?m.folder==='inbox'&&!MailLogic.snoozed(m):key==='snoozed'?MailLogic.snoozed(m)&&m.folder==='inbox':key==='waiting'?m.followUp:key==='starred'?m.star&&m.folder!=='trash':m.folder===key);
 function dateText(value){const d=new Date(value);return isNaN(d)?value:d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}

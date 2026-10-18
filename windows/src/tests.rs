@@ -8,8 +8,9 @@ use serde_json::json;
 fn providers_and_oauth() {
     let old: Credentials = serde_json::from_str(r#"{"email":"old@icloud.com","password":"fixture"}"#).unwrap();
     assert_eq!(old.kind(), Provider::Icloud);
-    assert_eq!((Provider::Gmail.imap_host(), Provider::Gmail.smtp_host()), ("imap.gmail.com", "smtp.gmail.com"));
-    assert_eq!(Provider::Icloud.imap_host(), "imap.mail.me.com");
+    let g = crate::mail::Server::preset(Provider::Gmail, "a@gmail.com").unwrap();
+    assert_eq!((g.imap_host.as_str(), g.smtp_host.as_str()), ("imap.gmail.com", "smtp.gmail.com"));
+    assert_eq!(crate::mail::Server::preset(Provider::Icloud, "a@icloud.com").unwrap().imap_host, "imap.mail.me.com");
     let c = net::credentials(&json!({"access_token": "fixture-token", "refresh_token": "fixture-refresh", "expires_in": 3600}), "me@outlook.com", "fixture-client", None).unwrap();
     assert!(c.kind() == Provider::Outlook && c.refresh_token.as_deref() == Some("fixture-refresh"));
     assert!(crate::mail::sync(&c).is_err(), "Outlook token must never go to IMAP");
@@ -95,4 +96,38 @@ fn dialog_page_preview() {
     let hostile = crate::dialog::html(&Spec::new("x", "</script><script>alert(1)</script>", &["OK"]));
     assert_eq!(hostile.matches("</script>").count(), 1, "text cannot close the page script");
     if let Ok(path) = std::env::var("STUPID_MAIL_DIALOG_PREVIEW") { std::fs::write(path, html).unwrap(); }
+}
+
+#[test]
+fn more_providers() {
+    use crate::mail::{Server, ALL};
+    assert_eq!(Server::preset(Provider::Yahoo, "a@yahoo.com").unwrap(), Server { imap_host: "imap.mail.yahoo.com".into(), imap_port: 993, smtp_host: "smtp.mail.yahoo.com".into(), smtp_port: 465, smtp_implicit_tls: true });
+    assert_eq!(Server::preset(Provider::Gmx, "a@gmx.de").unwrap().imap_host, "imap.gmx.net");
+    assert_eq!(Server::preset(Provider::Gmx, "a@gmx.com").unwrap().imap_host, "imap.gmx.com");
+    assert_eq!(Server::preset(Provider::Proton, "a@proton.me").unwrap().imap_host, "127.0.0.1");
+    assert!(Server::preset(Provider::Custom, "a@b.com").is_none() && Server::preset(Provider::Outlook, "a@b.com").is_none());
+    assert!(Server::valid("imap.example.com", 993));
+    for (h, p) in [("imap.example.com\r\nx", 993), ("imap example.com", 993), ("localhost", 993), ("imap.example.com", 0), ("-bad.example.com", 993), ("imap.example.com/inbox", 993)] { assert!(!Server::valid(h, p), "{h}:{p}"); }
+    assert!(Provider::Yahoo.valid_password("abcdefghijklmnop") && !Provider::Yahoo.valid_password("short"));
+    assert!(Provider::Fastmail.valid_password("abcd1234efgh5678") && !Provider::Fastmail.valid_password("ABCD-1234"));
+    assert!(Provider::Proton.valid_password("bridge-pw-Xy7") && !Provider::Proton.valid_password("pw\nevil"));
+    let other = Credentials { email: "me@example.com".into(), password: "secret-pass".into(), provider: Some(Provider::Custom), client_id: None, refresh_token: None, expires_at: None,
+        server: Some(Server { imap_host: "imap.example.com".into(), imap_port: 993, smtp_host: "smtp.example.com".into(), smtp_port: 587, smtp_implicit_tls: false }) };
+    let back: Credentials = serde_json::from_value(serde_json::to_value(&other).unwrap()).unwrap();
+    assert!(back.kind() == Provider::Custom && back.mail_server().unwrap().smtp_port == 587 && !back.mail_server().unwrap().smtp_implicit_tls);
+    // The Mac app stores the same JSON (camelCase keys), so the formats stay compatible.
+    assert!(serde_json::to_string(&other).unwrap().contains("\"smtpImplicitTLS\":false"));
+    assert_eq!(ALL.len(), 10);
+}
+/// Live check (run on demand: cargo test -- --ignored): each preset's real IMAP server answers over TLS and
+/// rejects a made-up account, which proves host, port and encryption.
+#[test]
+#[ignore]
+fn live_provider_servers() {
+    for p in [Provider::Icloud, Provider::Gmail, Provider::Yahoo, Provider::Aol, Provider::Fastmail, Provider::Zoho, Provider::Gmx] {
+        let c = Credentials { email: format!("stupidmail-test-nobody@{}", match p { Provider::Icloud => "icloud.com", Provider::Gmail => "gmail.com", Provider::Yahoo => "yahoo.com", Provider::Aol => "aol.com", Provider::Fastmail => "fastmail.com", Provider::Zoho => "zohomail.com", _ => "gmx.com" }),
+            password: "abcdefghijklmnop".into(), provider: Some(p), client_id: None, refresh_token: None, expires_at: None, server: None };
+        let r = crate::mail::sync(&c);
+        println!("{:<9} {}", p.title(), match r { Ok(_) => "unexpectedly signed in".into(), Err(e) => e.0 });
+    }
 }

@@ -5,14 +5,14 @@ extension AppDelegate {
         guard !mailBusy,window.attachedSheet == nil else {respond(id,error:"Finish the current operation first.");return}
         let alert=NSAlert();alert.messageText="Connect your mail"
         alert.informativeText="Choose your provider. One account is active at a time; connecting another replaces the saved sign-in. Drafts and sorting stay separate for each email address."
-        let provider=NSPopUpButton(frame:NSRect(x:0,y:0,width:400,height:30));provider.addItems(withTitles:["iCloud — Apple app password","Gmail — Google app password","Outlook — Microsoft sign-in"]);alert.accessoryView=provider
+        let provider=NSPopUpButton(frame:NSRect(x:0,y:0,width:400,height:30));provider.addItems(withTitles:MailProvider.allCases.map(\.menuTitle));alert.accessoryView=provider
         alert.addButton(withTitle:"Continue");alert.addButton(withTitle:"Cancel")
         alert.beginSheetModal(for:window){response in
             guard response == .alertFirstButtonReturn else {self.respond(id,error:"Cancelled.");return}
             DispatchQueue.main.async {
-                let selected:[MailProvider]=[.icloud,.gmail,.outlook]
-                if selected[provider.indexOfSelectedItem] == .outlook {self.connectOutlook(id)}
-                else {self.connectPasswordAccount(id,provider:selected[provider.indexOfSelectedItem])}
+                let selected=MailProvider.allCases[provider.indexOfSelectedItem]
+                if selected == .outlook {self.connectOutlook(id)}
+                else {self.connectPasswordAccount(id,provider:selected)}
             }
         }
     }

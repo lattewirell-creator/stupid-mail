@@ -29,6 +29,21 @@ import Foundation
   check(m.inReplyTo == "<original@example.com>","Graph reply threading")
   do{_=try OutlookMail.records(Data(#"{"value":[{}]}"#.utf8));fatalError("missing identity accepted")}catch{count+=1}
   let cancelled=SignInCancellation();check(!cancelled.cancelled,"sign-in starts active");cancelled.cancel();check(cancelled.cancelled,"sign-in cancellation")
+  // More providers: fixed servers per preset, typed-in servers checked, passwords per provider's format.
+  check(MailServer.preset(.yahoo,email:"a@yahoo.com") == MailServer(imapHost:"imap.mail.yahoo.com",imapPort:993,smtpHost:"smtp.mail.yahoo.com",smtpPort:465,smtpImplicitTLS:true),"Yahoo servers")
+  check(MailServer.preset(.gmx,email:"a@gmx.de")?.imapHost == "imap.gmx.net" && MailServer.preset(.gmx,email:"a@gmx.com")?.imapHost == "imap.gmx.com","GMX region by address")
+  check(MailServer.preset(.proton,email:"a@proton.me")?.imapHost == "127.0.0.1","Proton goes through the local Bridge")
+  check(MailServer.preset(.custom,email:"a@b.com") == nil && MailServer.preset(.outlook,email:"a@b.com") == nil,"no preset for Other and Outlook")
+  check(MailServer.valid(host:"imap.example.com",port:993),"typed server accepted")
+  for (host,port) in [("imap.example.com\r\nx",993),("imap example.com",993),("localhost",993),("imap.example.com",0),("imap.example.com",70000),("-bad.example.com",993),("imap.example.com/inbox",993)] {check(!MailServer.valid(host:host,port:port),"unsafe server rejected: \(host):\(port)")}
+  check(MailProvider.yahoo.validPassword("abcdefghijklmnop") && !MailProvider.yahoo.validPassword("short"),"Yahoo app password format")
+  check(MailProvider.fastmail.validPassword("abcd1234efgh5678") && !MailProvider.fastmail.validPassword("ABCD-1234"),"Fastmail app password format")
+  check(MailProvider.zoho.validPassword("Ab3dEf6hIj9k") ,"Zoho app password format")
+  check(MailProvider.proton.validPassword("bridge-pw-Xy7") && !MailProvider.proton.validPassword("pw\nevil"),"Bridge password, no control characters")
+  let other=MailCredentials(email:"me@example.com",password:"secret-pass",provider:.custom,server:MailServer(imapHost:"imap.example.com",imapPort:993,smtpHost:"smtp.example.com",smtpPort:587,smtpImplicitTLS:false))
+  let back=try JSONDecoder().decode(MailCredentials.self,from:JSONEncoder().encode(other))
+  check(back.kind == .custom && back.mailServer?.smtpPort == 587 && back.mailServer?.smtpImplicitTLS == false,"typed-in servers persist")
+  check(MailProvider.allCases.count == 10 && MailProvider.allCases.allSatisfy { !$0.menuTitle.isEmpty },"every provider is in the connect menu")
   print("Passed \(count) provider and OAuth checks.")
  }
 }

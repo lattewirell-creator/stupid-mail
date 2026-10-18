@@ -77,28 +77,48 @@ fn busy(app: &App) -> bool { app.mail_busy.load(Ordering::SeqCst) || app.dialog_
 fn connect(app: &mut App, id: String) {
     if busy(app) { app.respond(&id, Err("Finish the current operation first.".into())); return; }
     let spec = Spec::new("Connect your mail", "Choose your provider. One account is active at a time; connecting another replaces the saved sign-in. Drafts and sorting stay separate for each email address.", &["Continue", "Cancel"])
-        .field(Field::choice("provider", &["iCloud — Apple app password", "Gmail — Google app password", "Outlook — Microsoft sign-in"], 0));
+        .field(Field::choice("provider", &mail::ALL.map(|p| p.menu_title()), 0));
     app.dialog(spec, move |app, button, v| {
         if button != 0 { app.respond(&id, Err("Cancelled.".into())); return; }
-        match val(&v, "provider").as_str() { "2" => connect_outlook(app, id), "1" => connect_password(app, id, Provider::Gmail), _ => connect_password(app, id, Provider::Icloud) }
+        let p = mail::ALL[val(&v, "provider").parse::<usize>().unwrap_or(0).min(mail::ALL.len() - 1)];
+        if p == Provider::Outlook { connect_outlook(app, id) } else { connect_password(app, id, p) }
     });
 }
 fn connect_password(app: &mut App, id: String, provider: Provider) {
-    let text = if provider == Provider::Icloud { "Use your primary iCloud address and an Apple app-specific password from account.apple.com. Your password is stored encrypted for your Windows account. Latest 40 inbox messages; local sorting and drafts." }
-        else { "Use your full Gmail or Google Workspace address and a 16-letter Google app password. Enable 2-Step Verification, then create one at myaccount.google.com/apppasswords. Some work/school or protected accounts do not allow app passwords. Your password is stored encrypted for your Windows account." };
-    let spec = Spec::new(&format!("Connect {} Mail", provider.title()), &format!("{text}\n\nUse an app password, not your normal account password."), &["Connect", "Cancel", "Create app password"])
-        .field(Field::text("email", if provider == Provider::Icloud { "you@icloud.com" } else { "you@gmail.com" }, &store::setting("icloudEmail")))
-        .field(Field::secret("password", "App-specific password (xxxx-xxxx-xxxx-xxxx)"));
+    let custom = provider == Provider::Custom;
+    let title = if custom { "Connect your mail service".to_string() } else { format!("Connect {} Mail", provider.title()) };
+    let note = if provider == Provider::Proton { "Keep Proton Mail Bridge running while you use The Stupid Mail." } else { "Use an app password where your provider offers one." };
+    let mut buttons = vec!["Connect", "Cancel"];
+    if provider.password_page().is_some() { buttons.push(if provider == Provider::Proton { "Get Proton Mail Bridge" } else { "Create app password" }); }
+    let placeholder = match provider { Provider::Icloud => "you@icloud.com", Provider::Gmail => "you@gmail.com", _ => "you@example.com" };
+    let mut spec = Spec::new(&title, &format!("{} Your password is stored encrypted for your Windows account. Latest 40 inbox messages; local sorting and drafts.\n\n{note}", provider.help()), &buttons)
+        .field(Field::text("email", placeholder, &store::setting("icloudEmail")))
+        .field(Field::secret("password", if provider == Provider::Proton { "Bridge password" } else if custom { "Password or app password" } else { "App password" }));
+    if custom {
+        spec = spec.field(Field::text("imap", "IMAP server, e.g. imap.example.com", "")).field(Field::text("imapPort", "IMAP port (SSL/TLS)", "993"))
+            .field(Field::text("smtp", "SMTP server, e.g. smtp.example.com", "")).field(Field::text("smtpPort", "SMTP port", "465"))
+            .field(Field::choice("security", &["Sending security: SSL/TLS", "Sending security: STARTTLS"], 0));
+    }
     app.dialog(spec, move |app, button, v| {
-        if button == 2 { open_external(if provider == Provider::Icloud { "https://account.apple.com/" } else { "https://myaccount.google.com/apppasswords" }); app.respond(&id, Err("Create an app-specific password, then connect again.".into())); return; }
+        if button == 2 { if let Some(page) = provider.password_page() { open_external(page); }
+            app.respond(&id, Err(if provider == Provider::Proton { "Set up Proton Mail Bridge, then connect again." } else { "Create an app-specific password, then connect again." }.into())); return; }
         if button != 0 { app.respond(&id, Err("Cancelled.".into())); return; }
         let address = val(&v, "email").to_lowercase();
-        let secret = val(&v, "password").replace(' ', "");
+        let mut secret = val(&v, "password");
+        if matches!(provider, Provider::Icloud | Provider::Gmail | Provider::Yahoo | Provider::Aol | Provider::Fastmail | Provider::Zoho) { secret = secret.replace(' ', ""); }
+        let server = if custom {
+            let s = mail::Server { imap_host: val(&v, "imap").to_lowercase(), imap_port: val(&v, "imapPort").parse().unwrap_or(0), smtp_host: val(&v, "smtp").to_lowercase(),
+                smtp_port: val(&v, "smtpPort").parse().unwrap_or(0), smtp_implicit_tls: val(&v, "security") != "1" };
+            if !mail::Server::valid(&s.imap_host, s.imap_port) || !mail::Server::valid(&s.smtp_host, s.smtp_port) { app.respond(&id, Err("Check the server names and ports. Use your provider's IMAP and SMTP settings.".into())); return; }
+            Some(s)
+        } else { None };
         let ok_address = if provider == Provider::Icloud { validation::icloud_address(&address) } else { validation::address(&address) };
-        if !ok_address || !validation::app_password(&secret) { app.respond(&id, Err("Check your address and use a 16-letter app password from your provider.".into())); return; }
+        if !ok_address || !provider.valid_password(&secret) {
+            app.respond(&id, Err(if provider == Provider::Proton { "Check your address and use the password Proton Mail Bridge shows." } else { "Check your address and the app password from your provider." }.into())); return;
+        }
         app.mail_busy.store(true, Ordering::SeqCst);
         app.background(move || {
-            let c = Credentials { email: address.clone(), password: secret, provider: Some(provider), client_id: None, refresh_token: None, expires_at: None };
+            let c = Credentials { email: address.clone(), password: secret, provider: Some(provider), client_id: None, refresh_token: None, expires_at: None, server };
             let list = mail::sync(&c)?;
             store::save_secret("mail", &serde_json::to_value(&c).unwrap())?;
             store::set_setting("icloudEmail", Some(&address)); store::set_setting("mailProvider", Some(provider.raw()));

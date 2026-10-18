@@ -52,7 +52,7 @@ pub fn credentials(object: &Value, email: &str, client_id: &str, old_refresh: Op
         return fail("Microsoft sign-in expired or was denied. Reconnect Outlook. Check that your app registration allows public client sign-in and the requested mail permissions.");
     };
     Ok(Credentials { email: email.into(), password: token.into(), provider: Some(Provider::Outlook), client_id: Some(client_id.into()), refresh_token: Some(refresh.into()),
-        expires_at: Some(chrono::Utc::now().timestamp() + object["expires_in"].as_i64().unwrap_or(3600)) })
+        expires_at: Some(chrono::Utc::now().timestamp() + object["expires_in"].as_i64().unwrap_or(3600)), server: None })
 }
 pub fn refreshed(c: Credentials) -> Result<Credentials> {
     if c.expires_at.map(|e| e - chrono::Utc::now().timestamp() > 120).unwrap_or(false) { return Ok(c); }
