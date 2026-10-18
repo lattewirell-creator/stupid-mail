@@ -41,4 +41,10 @@ path = root / 'updates/appcast.xml'
 ET.ElementTree(feed).write(path, encoding='utf-8', xml_declaration=True)
 subprocess.run([str(bin_dir / 'sign_update'), *account, str(path)], check=True)
 subprocess.run([str(bin_dir / 'sign_update'), *account, '--verify', str(path)], check=True)
-print('Signed archive and feed. Upload the ZIP release before publishing updates/appcast.xml.')
+# Windows installers (from the Windows workflow) get an Ed25519 signature file for the Windows app's updater.
+for setup in sorted(release.glob('*-windows-setup.exe')):
+    sig = output(bin_dir / 'sign_update', *account, '-p', setup)
+    subprocess.run([str(bin_dir / 'sign_update'), *account, '--verify', str(setup), sig], check=True)
+    setup.with_name(setup.name + '.sig').write_text(sig + '\n')
+    print('Signed', setup.name)
+print('Signed archive and feed. Upload the ZIP (and any Windows installer + .sig) before publishing updates/appcast.xml.')

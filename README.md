@@ -1,12 +1,14 @@
-# The Stupid Mail 2.5
+# The Stupid Mail 2.6
 
-A cream-and-terracotta Mac mail app with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
+A cream-and-terracotta mail app for Mac and Windows with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
-[Download the latest Mac release](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
+[Download for Mac or Windows](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
 
 ## Open
 
-Unzip the Mac download, quit any older version, and drag The Stupid Mail.app into Applications. Requires Apple silicon and macOS 13 or later. This is an ad-hoc-signed local build, not a notarized App Store release.
+**Mac:** unzip the download, quit any older version, and drag The Stupid Mail.app into Applications. One app for Apple chip and Intel Macs, macOS 13 or later. This is an ad-hoc-signed build, not a notarized App Store release.
+
+**Windows:** run `StupidMail-<version>-windows-setup.exe`. Windows 10 or 11; it installs for your user only (no administrator prompt) and uses Windows' built-in Edge WebView2. Windows SmartScreen may warn because the installer isn't code-signed: choose **More info → Run anyway**. See [Windows notes](docs/windows.md).
 
 ## Connect your mail
 
