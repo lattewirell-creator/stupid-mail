@@ -2,7 +2,7 @@
 
 A cream-and-terracotta mail app for Mac and Windows with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
-[Download for Mac or Windows](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
+[Website](https://stupidmail.vercel.app) · [Download for Mac or Windows](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
 
 ## Open
 
