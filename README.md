@@ -1,14 +1,16 @@
-# The Stupid Mail 2.6
+# The Stupid Mail 2.7
 
-A cream-and-terracotta mail app for Mac and Windows with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
+A cream-and-terracotta mail app for Mac, Windows and Android with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
-[Website](https://stupidmail.vercel.app) · [Download for Mac or Windows](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
+[Website](https://stupidmail.vercel.app) · [Download for Mac, Windows or Android](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
 
 ## Open
 
 **Mac:** unzip the download, quit any older version, and drag The Stupid Mail.app into Applications. One app for Apple chip and Intel Macs, macOS 13 or later. This is an ad-hoc-signed build, not a notarized App Store release.
 
 **Windows:** run `StupidMail-<version>-windows-setup.exe`. Windows 10 or 11; it installs for your user only (no administrator prompt) and uses Windows' built-in Edge WebView2. Windows SmartScreen may warn because the installer isn't code-signed: choose **More info → Run anyway**. See [Windows notes](docs/windows.md).
+
+**Android:** download `StupidMail-<version>-android.apk` on your phone and open it. Android 8 or later. Your phone asks once to allow installs from your browser; Play Protect may ask you to confirm because the app isn't from the Play Store. Passwords and keys are encrypted with a key in the phone's secure hardware, and nothing is included in phone backups. Proton Mail isn't offered on Android because Proton Mail Bridge only runs on computers. Calendar events open in your phone's calendar app for you to save. The app checks GitHub once a day and tells you when a newer APK is out.
 
 ## Connect your mail
 
@@ -23,7 +25,7 @@ Choose **Connect mail** and select:
 | Fastmail | Full address and an app password with IMAP/SMTP access |
 | Zoho Mail (zoho.com) | Full address and an app-specific password; turn on IMAP in Zoho Mail |
 | GMX | Full address; turn on IMAP in GMX settings (app password if two-factor is on) |
-| Proton Mail | Through Proton Mail Bridge (paid Proton plans): set Bridge's IMAP and SMTP to SSL and use the Bridge password |
+| Proton Mail | Through Proton Mail Bridge (paid Proton plans): set Bridge's IMAP and SMTP to SSL and use the Bridge password. Mac and Windows only |
 | Any other service | Choose **Other mail service** and enter its IMAP (SSL/TLS) and SMTP (SSL/TLS or STARTTLS) servers |
 
 Follow the [setup guide](docs/accounts.md), including Outlook app-registration steps. One account is active at a time. Connecting another replaces its saved sign-in; drafts and sorting remain separate by address. Normal account passwords should never be entered in the app.
