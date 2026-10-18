@@ -27,6 +27,8 @@ extension AppDelegate: WKScriptMessageHandler {
         case "disconnect": disconnectAccount(id)
         case "sync": runMail(id) { credentials in ["email":credentials.email,"provider":credentials.kind.rawValue,"messages":try self.jsonRecords(credentials.kind == .outlook ? OutlookMail.sync(credentials) : ICloudMail().sync(credentials))] }
         case "send": confirmSend(id,request)
+        case "calendarSuggest", "calendarConnect", "calendarList", "calendarCreate": calendarAction(id,action:action,request:request)
+        case "workspaceOpen", "workspaceSettings", "workspaceShare": workspaceAction(id,action:action,request:request)
         case "buddyStatus": respond(id,data:buddyStatus())
         case "buddySettings": configureBuddy(id)
         case "buddyAsk": askBuddy(id,request)

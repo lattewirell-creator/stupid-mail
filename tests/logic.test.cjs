@@ -18,3 +18,7 @@ assert.equal(L.merge(decisions,[]).length,2);assert.equal(L.merge(decisions,[{id
 assert.equal(L.radar({followUp:'2020-01-01',email:'x@example.com'},[]),'due');
 assert.equal(L.replyMatch({id:'a',email:'a@b.com',subject:''},[{id:'b',remote:true,email:'a@b.com',subject:'',time:'2026-10-17'}]),null);
 console.log('Passed snooze expiry, local-decision retention, unread overrides, and Radar grouping checks.');
+const actionMail={id:'task-mail',remote:true,folder:'inbox',actions:[{id:'task',title:'Send proposal',due:'2030-01-01',done:false}]};
+assert.equal(L.merge([actionMail],[]).length,1,'task source survives latest-40 refresh');
+assert.equal(L.merge([actionMail],[{id:'task-mail',remote:true,folder:'inbox',subject:'Refreshed'}])[0].actions[0].title,'Send proposal','tasks survive message refresh');
+console.log('Passed linked-task source retention and sync preservation checks.');

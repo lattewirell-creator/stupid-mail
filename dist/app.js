@@ -34,7 +34,7 @@ const folderMail=key=>mails.filter(m=>key==='quiet'?m.folder==='inbox'&&!MailLog
 function dateText(value){const d=new Date(value);return isNaN(d)?value:d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}
 function render(){
  $('#setup-note').hidden=Boolean(account)||folder!=='quiet';$('#start-connect').disabled=!ready||syncing;
- $('#folders').innerHTML=folders.map(([key,icon,title])=>`<button data-folder="${key}" class="${folder===key?'active':''}"><span class="icon">${icon}</span>${title}<span class="count">${folderMail(key).length||''}</span></button>`).join('');
+ $('#folders').innerHTML=folders.map(([key,icon,title])=>`<button data-folder="${key}" title="${title}" aria-label="${title}" class="${folder===key?'active':''}"><span class="icon">${icon}</span><span class="folder-label">${title}</span><span class="count">${folderMail(key).length||''}</span></button>`).join('');
  $('#folder-title').textContent=folders.find(f=>f[0]===folder)[2];
  const subtitles={quiet:'A little attention. A few decisions. Then go live your life.',inbox:account?'Your latest inbox messages and locally saved items.':'Your demo inbox. Make yourself at home.',waiting:'A gentle nudge, without keeping it all in your head.',snoozed:'Resting until you’re ready. Messages return automatically while the app is open.',starred:'The ones worth keeping close.',sent:'Messages sent from this app. Other sent mail is not synced.',drafts:'Your words, saved on this Mac.',archive:'Put aside on this Mac. Your server folders are unchanged.',trash:'Hidden on this Mac. Nothing has been deleted from your mail server.'};$('#subtitle').textContent=subtitles[folder];
  const board=$('#quiet-board');board.hidden=!['quiet','waiting'].includes(folder);
@@ -108,3 +108,5 @@ document.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='f'){e.preventDefault();$('#search').focus()}
  if(e.key.toLowerCase()==='n'){e.preventDefault();compose()}
 });
+
+$('#toolbar-buddy').onclick=()=>$('#buddy-toggle').click();

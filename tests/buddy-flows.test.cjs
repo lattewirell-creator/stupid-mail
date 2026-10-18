@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const els=new Map();class E{constructor(){this.hidden=false;this.value='';this.checked=false;this.children=[];this.classList={add(){}}}append(e){this.children.push(e)}replaceChildren(){this.children=[]}focus(){}setAttribute(){}addEventListener(){}}
+const els=new Map();class E{constructor(){this.dataset={};this.hidden=false;this.value='';this.checked=false;this.children=[];this.classList={add(){}}}append(e){this.children.push(e)}replaceChildren(){this.children=[]}focus(){}setAttribute(){}addEventListener(){}}
 function $(s){if(!els.has(s))els.set(s,new E());return els.get(s)}
 const listeners={};let selected={id:'one',subject:'One',email:'a@example.com',body:'Private one'},resolveAnswer,lastRequest,used;
 const context=vm.createContext({$,native:true,console,matchMedia:()=>({matches:true}),localStorage:{getItem:()=>null,setItem(){}},document:{createElement:()=>new E(),querySelectorAll:()=>[],addEventListener(){}},bridge:async(action,fields)=>{if(action==='buddyStatus')return{ready:true,provider:'ollama',model:'fixture'};if(action==='buddyAsk'){lastRequest=fields;return new Promise(resolve=>resolveAnswer=resolve)}},mailForBuddy:()=>selected,useBuddyDraft:(text,id)=>{used={text,id}},addEventListener:(n,f)=>(listeners[n]??=[]).push(f)});context.window=context;

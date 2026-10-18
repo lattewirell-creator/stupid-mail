@@ -1,0 +1,13 @@
+// Original ambient chords synthesized locally. No audio files, network, or autoplay.
+(()=>{
+ const button=document.querySelector('#music-toggle'),label=document.querySelector('#music-label'),volume=document.querySelector('#music-volume');
+ let context,master,timer,playing=false,starting=false,index=0;const voices=new Set();
+ try{volume.value=String(Math.max(0,Math.min(100,Number(localStorage.getItem('stupid-mail-music-volume')??20))))}catch{}
+ const chords=[[130.81,164.81,196,246.94],[110,130.81,164.81,196],[87.31,130.81,174.61,220],[98,146.83,196,246.94]];
+ function paint(){button.setAttribute('aria-pressed',String(playing));label.textContent=playing?'Pause music':'Music';volume.hidden=!playing;window.dispatchEvent(new CustomEvent('music-updated',{detail:{playing,volume:Number(volume.value)}}));button.title=playing?'Pause background music':'Play soft background music'}
+ function chord(){if(!playing)return;const now=context.currentTime;chords[index++%chords.length].forEach((frequency,i)=>{const oscillator=context.createOscillator(),gain=context.createGain();oscillator.type='sine';oscillator.frequency.value=frequency;oscillator.detune.value=i%2?3:-3;gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(.08,now+2);gain.gain.setValueAtTime(.08,now+6);gain.gain.linearRampToValueAtTime(0,now+9);oscillator.connect(gain);gain.connect(master);oscillator.start(now);oscillator.stop(now+9.1);voices.add(oscillator);oscillator.onended=()=>{voices.delete(oscillator);oscillator.disconnect();gain.disconnect()}})}
+ function stop(){playing=false;clearInterval(timer);if(master)master.gain.setTargetAtTime(0,context.currentTime,.2);for(const voice of voices){try{voice.stop(context.currentTime+.8)}catch{}}paint()}
+ button.onclick=async()=>{if(starting)return;if(playing){stop();return}starting=true;button.disabled=true;try{context??=new (window.AudioContext||window.webkitAudioContext)();master??=context.createGain();master.disconnect();master.connect(context.destination);await context.resume();playing=true;master.gain.setTargetAtTime(Number(volume.value)/100,context.currentTime,.2);chord();timer=setInterval(chord,7000);paint()}catch{stop();label.textContent='Music unavailable'}finally{starting=false;button.disabled=false}};
+ volume.oninput=()=>{if(master&&playing)master.gain.setTargetAtTime(Number(volume.value)/100,context.currentTime,.1);try{localStorage.setItem('stupid-mail-music-volume',volume.value)}catch{}window.dispatchEvent(new CustomEvent('music-updated',{detail:{playing,volume:Number(volume.value)}}))};
+ window.addEventListener('pagehide',stop);paint();
+})();

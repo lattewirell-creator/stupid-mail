@@ -11,9 +11,9 @@ const Logic={
  radar:(m,messages,now=Date.now())=>Logic.possibleReply(m,messages)?'replied':Logic.due(m,now)?'due':'upcoming',
  merge:(old,incoming)=>{
   const priorByID=new Map(old.map(m=>[m.id,m]));
-  const retained=old.filter(m=>!m.remote||m.folder!=='inbox'||m.followUp||m.quiet||m.star||Logic.snoozed(m));
+  const retained=old.filter(m=>!m.remote||m.folder!=='inbox'||m.followUp||m.quiet||m.star||m.actions?.length||Logic.snoozed(m));
   const map=new Map(retained.map(m=>[m.id,m]));
-  for(const fresh of incoming){const prior=priorByID.get(fresh.id)||{};map.set(fresh.id,{...fresh,...Object.fromEntries(['quiet','followUp','waitingSince','localRead','localStar','folder','snoozedUntil'].filter(k=>Object.hasOwn(prior,k)).map(k=>[k,prior[k]])),unread:prior.localRead===undefined?fresh.unread:!prior.localRead,star:prior.localStar??fresh.star});}
+  for(const fresh of incoming){const prior=priorByID.get(fresh.id)||{};map.set(fresh.id,{...fresh,...Object.fromEntries(['actions','quiet','followUp','waitingSince','localRead','localStar','folder','snoozedUntil'].filter(k=>Object.hasOwn(prior,k)).map(k=>[k,prior[k]])),unread:prior.localRead===undefined?fresh.unread:!prior.localRead,star:prior.localStar??fresh.star});}
   return [...map.values()].sort((a,b)=>(b.sentAt||Date.parse(b.time)||0)-(a.sentAt||Date.parse(a.time)||0));
  },
  escape:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))

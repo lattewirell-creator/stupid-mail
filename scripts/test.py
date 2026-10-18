@@ -10,6 +10,8 @@ with tempfile.TemporaryDirectory(prefix='stupid-mail-tests-') as temporary:
     for test, sources in [
         ('CoreTests', ['MailCore', 'IMAPConnection', 'MailCache']),
         ('ProviderTests', ['MailCore', 'IMAPConnection', 'OutlookMail']),
+        ('WorkspaceTests', ['MailCore', 'IMAPConnection', 'WorkspaceCore']),
+        ('CalendarTests', ['CalendarCore']),
     ]:
         binary = temp / test
         run('swiftc', *[root / 'macos' / (name + '.swift') for name in sources],
@@ -17,5 +19,5 @@ with tempfile.TemporaryDirectory(prefix='stupid-mail-tests-') as temporary:
             '-framework', 'Security', '-framework', 'Network',
             '-module-cache-path', Path(tempfile.gettempdir()) / 'stupid-mail-test-module-cache')
         run(binary)
-for test in ['logic.test.cjs', 'app-flows.test.cjs', 'buddy-flows.test.cjs']:
+for test in ['logic.test.cjs', 'app-flows.test.cjs', 'buddy-flows.test.cjs', 'music.test.cjs', 'buddy-play.test.cjs', 'customize.test.cjs']:
     run('node', root / 'tests' / test)

@@ -1,8 +1,11 @@
 import AppKit
+import EventKit
 @preconcurrency import WebKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
     let cacheQueue = DispatchQueue(label: "StupidMail.LocalStorage", qos: .userInitiated)
+    let eventStore=EKEventStore()
+    var workspaceWindows:[String:WorkspaceWindow] = [:]
     var mailBusy = false
     var buddyBusy = false
     var window: NSWindow!
@@ -47,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.userContentController.add(self, name: "mail")
-        let nativeStyle = "const s=document.createElement('style');s.textContent='.chrome,.address-bar{display:none!important}.window{min-height:100vh}.app{min-height:calc(100vh - 34px)}';document.head.appendChild(s);"
+        let nativeStyle = "const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s);"
         configuration.userContentController.addUserScript(WKUserScript(source: nativeStyle, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = self

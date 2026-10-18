@@ -95,6 +95,11 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     else if (shape === 'capsule') { geo = new THREE.CapsuleGeometry(0.72, 0.62, 12, 32); geo.rotateZ(Math.PI / 2); front = 0.72; top = 0.72; w = 1.05; }
     else if (shape === 'egg') { geo = new THREE.SphereGeometry(1, 48, 32); geo.scale(0.88, 1.08, 0.88); front = 0.88; top = 1.08; w = 0.9; }
     else if (shape === 'tv') { geo = new RoundedBoxGeometry(2.15, 1.5, 1.25, 4, 0.2); front = 0.63; top = 0.75; w = 1.05; }
+    else if (shape === 'ball') {   // the little ball from the welcome screen: just a round body with two eyes
+      geo = new THREE.SphereGeometry(0.95, 48, 32);
+      shell = new THREE.Mesh(geo, bodyMat); head.add(shell);
+      return { front: 0.95, w: 0.95, top: 0.95, eyeY: 0.1, kind: 'ball' };
+    }
     else if (shape === 'hiker') {   // one chubby bean: head and body together
       geo = new THREE.CapsuleGeometry(0.8, 0.8, 16, 40); geo.scale(1, 1, 0.92);
       shell = new THREE.Mesh(geo, bodyMat); head.add(shell);
@@ -140,6 +145,7 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
   function buildFace(dim) {
     if (face) { head.remove(face.group); face.group.traverse((o) => o.geometry && o.geometry.dispose()); }
     if (dim.kind === 'hiker') return hikerFace(dim);
+    if (dim.kind === 'ball') return ballFace(dim);
     const g = new THREE.Group(); g.position.z = dim.front - 0.18;
     const visor = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), darkMat); visor.scale.set(0.74 * dim.w, 0.46, 0.3); g.add(visor);
     const photo = new THREE.Mesh(new THREE.CircleGeometry(0.42, 40), photoMat); photo.position.z = 0.31; photo.visible = false; g.add(photo);
@@ -148,6 +154,19 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     const happyGeo = new THREE.TorusGeometry(0.11, 0.035, 8, 20, Math.PI);
     const happy = [-0.27, 0.27].map((x) => { const e = new THREE.Mesh(happyGeo, glowMat); e.position.set(x, 0.02, 0.3); e.visible = false; g.add(e); return e; });
     const mouth = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.12, 4, 8), glowMat); mouth.rotation.z = Math.PI / 2; mouth.position.set(0, -0.2, 0.28); g.add(mouth);
+    head.add(g);
+    face = { group: g, eyes, happy, mouth, photo, eyeBase: eyes.map((e) => e.position.clone()) };
+  }
+  // Ball face: two tall white eyes, like the welcome screen's Buddy (no mouth; happy eyes curve up).
+  function ballFace(dim) {
+    const g = new THREE.Group(); g.position.set(0, dim.eyeY, 0);
+    const eyeGeo = new THREE.CapsuleGeometry(0.13, 0.2, 8, 20);   // proportions of the welcome screen's ball (11×17px eyes on 74px)
+    const at = (x) => { const z = Math.sqrt(Math.max(0, dim.front * dim.front - x * x - dim.eyeY * dim.eyeY)); return z; };
+    const eyes = [-0.28, 0.28].map((x) => { const e = new THREE.Mesh(eyeGeo, whiteMat); e.position.set(x, 0, at(x) - 0.05); e.scale.z = 0.55; e.rotation.y = x * 0.9; g.add(e); return e; });
+    const happyGeo = new THREE.TorusGeometry(0.13, 0.05, 8, 20, Math.PI);
+    const happy = [-0.28, 0.28].map((x) => { const e = new THREE.Mesh(happyGeo, whiteMat); e.position.set(x, -0.02, at(x) - 0.02); e.rotation.y = x * 0.9; e.visible = false; g.add(e); return e; });
+    const mouth = new THREE.Group(); mouth.position.set(0, -0.25, at(0)); g.add(mouth);   // keeps the talking animation happy
+    const photo = new THREE.Mesh(new THREE.CircleGeometry(0.42, 40), photoMat); photo.position.z = dim.front + 0.01; photo.visible = false; g.add(photo);
     head.add(g);
     face = { group: g, eyes, happy, mouth, photo, eyeBase: eyes.map((e) => e.position.clone()) };
   }
@@ -197,6 +216,7 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
   function buildParts(dim, shape) {
     if (parts) { head.remove(parts); parts.traverse((o) => o.geometry && o.geometry.dispose()); }
     if (shape === 'hiker') return hikerParts();
+    if (shape === 'ball') { parts = new THREE.Group(); head.add(parts); return; }   // no antenna, ears or body
     parts = new THREE.Group();
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.38, 10), accentMat); stem.position.y = dim.top + 0.17; parts.add(stem);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), glowMat); bulb.position.y = dim.top + 0.4; parts.add(bulb); parts.userData.bulb = bulb; parts.userData.stem = stem;
@@ -252,9 +272,9 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     const shapeChanged = !shell || next.shape !== look.shape;
     const faceChanged = next.shape === 'hiker' && ['eyes', 'mouth', 'backpack', 'scarf'].some((k) => next[k] !== look[k]);
     Object.assign(look, next);
-    const hiker = look.shape === 'hiker';
-    head.position.y = hiker ? 0.22 : 0.55;
-    torso.visible = belly.visible = handL.visible = handR.visible = !hiker;
+    const hiker = look.shape === 'hiker', ball = look.shape === 'ball';
+    head.position.y = hiker ? 0.22 : ball ? 0.05 : 0.55;
+    torso.visible = belly.visible = handL.visible = handR.visible = !hiker && !ball;
     outfitMat.color.set(hex(look.outfit, COLORS, 'clay'));
     bodyMat.color.set(hex(look.color, COLORS, 'clay'));
     glowMat.color.set(hex(look.glow, GLOWS, 'cyan'));
@@ -381,8 +401,10 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     renderer.dispose(); canvas.remove();
   }
+  // A still picture of the character as it looks right now (used for the little face in the chat header).
+  function snapshot() { if (!canvas.width || !canvas.height) return ''; renderer.render(scene, camera); return canvas.toDataURL('image/png'); }
   resize(); setLook({}); kick();
-  return { setLook, setState, lookAt, poke, setVisible, destroy, canvas, land };
+  return { setLook, setState, lookAt, poke, setVisible, destroy, canvas, land, snapshot };
 }
 window.Buddy3D = { create: createBuddy };
 window.dispatchEvent(new Event('buddy3d-ready'));

@@ -1,4 +1,4 @@
-# The Stupid Mail 2.2
+# The Stupid Mail 2.3
 
 A cream-and-terracotta Mac mail app with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
@@ -53,11 +53,24 @@ python3 scripts/test.py
 python3 scripts/build-mac.py
 ```
 
-The build creates `release-2.2/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
+The build creates `release-2.3/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
 
 Tests cover MIME/IMAP framing and injection resistance, provider migration, OAuth token parsing, safe Outlook message conversion, frontend draft handling, snooze/undo, and Buddy context isolation. An optional localhost SMTP transport fixture is available in `tests/smtp_transport.py`.
 
 Live account authentication, Microsoft consent, real-provider AI responses, and visual UI behavior still need testing with the owner’s setup. Fixture tests do not establish live connectivity.
+
+## Version 2.3
+
+- Browser-inspired modern frame, compact rail, rounded mailbox panel, pill search, and serif heading, adapted from The Stupid Browser source at `9234994`.
+- Updated browser Buddy character: pick up and toss, bounce and landing reactions, return-home control, character and hat choices, and selected-email-text questions prepared for explicit review before sending.
+- Optional locally synthesized ambient music, with play/pause and volume. No autoplay or external music service. Volume is remembered; playback is not.
+- Slack and Teams web-client windows plus email-excerpt sharing through configured incoming webhooks/Workflows. See [workspace setup](docs/workspaces.md).
+- Calendar view and on-device meeting suggestions from loaded email or selected/pasted chat text. Connect calendars already synced in macOS, review suggestions, and confirm before adding events. See [calendar setup](docs/calendar.md).
+- Customize theme, accent, frame, density, corners, and sidebar; add/remove/reorder checklist, calendar, music, clock, and Action Desk widgets. Checklist tasks survive widget removal and appearance resets.
+- **Action Desk:** turn an email into a local task with an optional due date and a link back to its source. Refresh preserves emails with linked tasks beyond the latest 40 messages. No background task notifications.
+- Reduced-motion users get a static Buddy and no throw animation.
+
+The visual browser preview was blocked by an administrative browser-policy check. Automated interaction checks and the signed Mac build pass; visual layout, embedded workspace sign-in, real webhook delivery, and calendar permission/saving need live testing.
 
 ## Version 2.2
 
