@@ -127,7 +127,7 @@ fn connect_outlook(app: &mut App, id: String) {
             let prompt = app.dialog(Spec::new("Finish Microsoft sign-in", "Open microsoft.com/devicelogin and enter this code. Approve access only for your The Stupid Mail registration. This window closes when sign-in finishes.", &["Cancel sign-in"]).field(Field::readonly("code", &code)),
                 move |_, _, _| c3.store(true, Ordering::SeqCst));
             open_external("https://microsoft.com/devicelogin");
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(device["expires_in"].as_u64().unwrap_or(120).min(120));
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(device["expires_in"].as_u64().unwrap_or(900).min(900));
             let mut interval = device["interval"].as_u64().unwrap_or(5).max(5);
             let c4 = cancelled.clone();
             app.background(move || -> mail::Result<(Credentials, Value)> {

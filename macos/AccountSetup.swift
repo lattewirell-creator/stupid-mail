@@ -41,7 +41,7 @@ extension AppDelegate {
                         NSWorkspace.shared.open(URL(string:"https://microsoft.com/devicelogin")!)
                         DispatchQueue.global(qos:.userInitiated).async {
                             do {
-                                let deadline=Date().addingTimeInterval(Double(min(device["expires_in"] as? Int ?? 120,120)))
+                                let deadline=Date().addingTimeInterval(Double(min(device["expires_in"] as? Int ?? 900,900)))  // Microsoft codes last 15 minutes
                                 var interval=max(device["interval"] as? Int ?? 5,5)
                                 var credentials:MailCredentials?
                                 while Date()<deadline && !cancellation.cancelled {
