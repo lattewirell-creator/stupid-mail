@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
+        android:label="Stupid Mail"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.StupidMail"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/no_backup"
+        android:networkSecurityConfig="@xml/network">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.APP_EMAIL" />
+            </intent-filter>
+            <!-- "Send email" from other apps opens a new message -->
+            <intent-filter>
+                <action android:name="android.intent.action.SENDTO" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="mailto" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

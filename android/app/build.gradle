@@ -1,0 +1,54 @@
+plugins { id 'com.android.application' }
+
+// Release signing: keystore.properties (not in git) → storeFile, storePassword, keyAlias, keyPassword
+def ks = new Properties()
+def ksFile = rootProject.file('keystore.properties')
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+
+// The interface is the same dist/ folder the Mac and Windows apps use, copied in at build time.
+def webAssets = layout.buildDirectory.dir('generated/web')
+tasks.register('copyWeb', Copy) {
+    from('../../dist') { exclude '**/.DS_Store' }
+    into(webAssets.map { it.dir('web') })
+}
+
+android {
+    namespace 'com.emil.stupidmail'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.emil.stupidmail'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '2.7'
+    }
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+            enableV2Signing true
+            enableV3Signing true
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (ksFile.exists()) signingConfig signingConfigs.release
+        }
+    }
+    sourceSets { main { assets.srcDirs += [webAssets] } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+tasks.named('preBuild') { dependsOn 'copyWeb' }
+
+dependencies {
+    // Unit tests run the mail code on the computer; org.json there is the real library (Android has it built in).
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20250517'
+}

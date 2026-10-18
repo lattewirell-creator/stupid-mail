@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.StupidMail" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorAccent">#D97757</item>
+        <item name="android:windowBackground">#1E1C19</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>
