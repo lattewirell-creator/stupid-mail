@@ -1,12 +1,14 @@
 import AppKit
 import EventKit
+import Sparkle
 import UniformTypeIdentifiers
 @preconcurrency import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, NSMenuItemValidation {
     let cacheQueue = DispatchQueue(label: "StupidMail.LocalStorage", qos: .userInitiated)
     let eventStore=EKEventStore()
     var workspaceWindows:[String:WorkspaceWindow] = [:]
+    lazy var updaterController = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
     var mailBusy = false
     var buddyBusy = false
     var window: NSWindow!
@@ -18,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         appMenu.addItem(appItem)
         let applicationMenu = NSMenu()
         applicationMenu.addItem(withTitle: "About The Stupid Mail", action: #selector(showAbout), keyEquivalent: "")
+        let updateItem = applicationMenu.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        updateItem.target = updaterController
+        applicationMenu.addItem(withTitle: "Automatic Updates", action: #selector(toggleAutomaticUpdates), keyEquivalent: "")
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(withTitle: "Hide The Stupid Mail", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         applicationMenu.addItem(.separator())
@@ -70,6 +75,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         webView.loadFileURL(website.appendingPathComponent("index.html"), allowingReadAccessTo: website)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        updaterController.startUpdater()
+    }
+
+    @objc func toggleAutomaticUpdates() {
+        let updater = updaterController.updater
+        let enabled = !updater.automaticallyChecksForUpdates
+        updater.automaticallyDownloadsUpdates = enabled
+        updater.automaticallyChecksForUpdates = enabled
+    }
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(toggleAutomaticUpdates) {
+            menuItem.state = updaterController.updater.automaticallyChecksForUpdates ? .on : .off
+        }
+        return true
     }
 
     @objc func newMessage() { webView.evaluateJavaScript("if(!document.querySelector('dialog[open]'))document.getElementById('compose').click()", completionHandler: nil) }

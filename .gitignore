@@ -15,3 +15,5 @@ macos/mail-icon-1024.png
 *.key
 __pycache__/
 *.pyc
+
+.build/

@@ -1,4 +1,4 @@
-# The Stupid Mail 2.4
+# The Stupid Mail 2.5
 
 A cream-and-terracotta Mac mail app with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
@@ -19,6 +19,10 @@ Choose **Connect mail** and select:
 | Outlook / Hotmail / Microsoft 365 | Microsoft browser sign-in; this build requires your own Microsoft application client ID |
 
 Follow the [setup guide](docs/accounts.md), including Outlook app-registration steps. One account is active at a time. Connecting another replaces its saved sign-in; drafts and sorting remain separate by address. Normal account passwords should never be entered in the app.
+
+## Automatic app updates
+
+Install 2.5 once to enable signed in-app updates. Future packaged releases download automatically, with hourly checks while open and installation on quit. Use **The Stupid Mail → Check for Updates…** to check immediately or toggle **Automatic Updates**. Uploading source code alone does not publish an update. [Update setup and release steps](docs/updates.md).
 
 ## A calmer inbox
 
@@ -46,14 +50,14 @@ Sending requires native confirmation. Provider acceptance is not a delivery guar
 
 ## Build and test
 
-Install Apple Command Line Tools, Python 3, and Node.js. No package install is needed.
+Install Apple Command Line Tools, Python 3, and Node.js. The build downloads a checksum-verified Sparkle framework for native updates.
 
 ```sh
 python3 scripts/test.py
 python3 scripts/build-mac.py
 ```
 
-The build creates `release-2.4/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
+The build creates `release-2.5/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
 
 Tests cover MIME/IMAP framing and injection resistance, provider migration, OAuth token parsing, safe Outlook message conversion, frontend draft handling, snooze/undo, and Buddy context isolation. An optional localhost SMTP transport fixture is available in `tests/smtp_transport.py`.
 
