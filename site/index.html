@@ -323,7 +323,7 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
             <g class="flag"><rect x="61" y="18" width="4" height="26" fill="var(--sage)"/><rect x="61" y="18" width="14" height="9" fill="var(--sage)"/></g>
           </svg>
         </div>
-        <p class="hero-small" id="heroSmall">For Mac. Windows is on the way.</p>
+        <p class="hero-small" id="heroSmall">For Mac and Windows.</p>
       </div>
     </div>
 
@@ -444,7 +444,7 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
     <div class="stamps">
       <div class="stamp"><span><i class="val">iCloud · Gmail · Outlook · Yahoo · Proton · more</i><h3>Your address, as it is</h3><p>iCloud, Gmail, Yahoo, AOL, Fastmail, Zoho and GMX connect with an app password, Proton Mail through its Bridge, and Outlook signs in on Microsoft’s own page. Anything else works too: just type in its servers. Wherever your provider offers app passwords, your normal password never goes in.</p></span></div>
       <div class="stamp"><span><i class="val">⌘N ⌘F ⌘R</i><h3>Keyboard first</h3><p>Write, search (or just press /) and refresh without touching the mouse. Drafts save themselves while you type.</p></span></div>
-      <div class="stamp"><span><i class="val">Calendar</i><h3>Spot the meetings</h3><p>Buddy finds dates in your mail, right on your Mac, and suggests events. You check everything and confirm before it’s added.</p></span></div>
+      <div class="stamp"><span><i class="val">Calendar</i><h3>Spot the meetings</h3><p>Buddy finds dates in your mail, right on your computer, and suggests events. You check everything and confirm before it’s added.</p></span></div>
       <div class="stamp"><span><i class="val">Action Desk</i><h3>Email to task</h3><p>Turn a message into a task with a due date and a link back to it. It stays even after the email scrolls away.</p></span></div>
       <div class="stamp"><span><i class="val">♫ Widgets</i><h3>Make it yours</h3><p>Theme, accent, density, corners, a checklist, a clock, and soft background music made in the app. Nothing autoplays.</p></span></div>
       <div class="stamp"><span><i class="val">Slack · Teams</i><h3>Chats next door</h3><p>Open your chats in their own window, or share a short excerpt to a channel you set up. You see what goes and confirm it.</p></span></div>
@@ -455,11 +455,11 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
       <div>
         <h2>Sealed, not shared.</h2>
         <ul>
-          <li>Passwords, AI keys and your Outlook sign-in live in the macOS Keychain, never in the app’s web view.</li>
+          <li>Passwords, AI keys and your Outlook sign-in live in the macOS Keychain, or encrypted for your Windows account, never in the app’s web view.</li>
           <li>Your mail, drafts and sorting are cached in private files on your computer, separately for each address.</li>
           <li>Emails show as text without outside images or tracking scripts, so nobody learns when you opened them.</li>
           <li>Every email asks for one last confirmation before it goes out.</li>
-          <li>Updates are signed and checked before they install, and they arrive by themselves from version 2.5 on.</li>
+          <li>New versions are posted on GitHub and here. Automatic updates are built in and switch on in a later version.</li>
         </ul>
       </div>
     </div>
@@ -475,7 +475,7 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
         <li><span><b>Attachments.</b> None yet, for reading or sending. Very large emails may need your provider’s app.</span></li>
         <li><span><b>A second account.</b> One at a time. Connecting another replaces the saved sign-in, while drafts and sorting are kept per address.</span></li>
         <li><span><b>Outlook out of the box.</b> For now you need your own free Microsoft app registration. The guide walks you through it.</span></li>
-        <li><span><b>Apple’s blessing.</b> It isn’t notarized by Apple, so macOS asks once the first time you open it.</span></li>
+        <li><span><b>Official seals.</b> It isn’t notarized by Apple or code-signed for Windows, so your computer asks once the first time you open it.</span></li>
       </ul>
     </div>
   </section>
@@ -489,9 +489,9 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
           <div class="addr"><span>From: GitHub</span><span>To: your Mac</span></div>
           <span class="postmark" id="macMark">The Stupid Mail · Latest</span>
           <h3>Mac</h3>
-          <p class="for" id="macFor">macOS 13 or newer · Apple chip</p>
+          <p class="for" id="macFor">macOS 13 or newer · Apple chip and Intel</p>
           <a class="go" data-plat="mac" href="https://github.com/lattewirell-creator/stupid-mail/releases/latest">Download for Mac <span id="macSize">.zip</span></a>
-          <p class="note">Unzip it and drag The Stupid Mail into Applications. From then on it updates itself.</p>
+          <p class="note">Unzip it and drag The Stupid Mail into Applications. Updating? Quit the old one and replace it; your accounts and drafts stay.</p>
         </div>
         <div class="label" id="win">
           <div class="addr"><span>From: GitHub</span><span>To: your PC</span></div>
@@ -646,8 +646,6 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
       document.querySelectorAll('[data-plat="mac"]').forEach((a) => { a.href = mac.browser_download_url; });
       if (mac.size) document.getElementById('macSize').textContent = fmtSize(mac.size);
     }
-    // the "-mac.zip" builds are one app for both Apple chip and Intel Macs
-    if (macNew) document.getElementById('macFor').textContent = 'macOS 13 or newer · Apple chip and Intel';
     if (win) {
       const a = document.querySelector('[data-plat="win"]');
       a.href = win.browser_download_url; a.classList.remove('waiting');
