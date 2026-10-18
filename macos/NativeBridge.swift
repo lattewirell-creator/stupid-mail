@@ -57,24 +57,41 @@ extension AppDelegate: WKScriptMessageHandler {
     @objc func accountMenu(){webView.evaluateJavaScript("document.getElementById('connect-account').click()",completionHandler:nil)}
     func connectPasswordAccount(_ id:String,provider:MailProvider){
         guard !mailBusy,window.attachedSheet == nil else {respond(id,error:"Finish the current operation first.");return}
-        let alert=NSAlert();alert.messageText="Connect \(provider.title) Mail"
-        alert.informativeText=provider == .icloud ? "Use your primary iCloud address and an Apple app-specific password from account.apple.com. Your password is stored in macOS Keychain. Latest 40 inbox messages; local sorting and drafts." : "Use your full Gmail or Google Workspace address and a 16-letter Google app password. Enable 2-Step Verification, then create one at myaccount.google.com/apppasswords. Some work/school or protected accounts do not allow app passwords. Your password is stored in macOS Keychain."
-        let form=NSView(frame:NSRect(x:0,y:0,width:400,height:112))
-        let email=NSTextField(frame:NSRect(x:0,y:75,width:400,height:26));email.placeholderString=provider == .icloud ? "you@icloud.com" : "you@gmail.com";email.stringValue=UserDefaults.standard.string(forKey:"icloudEmail") ?? ""
-        let password=NSSecureTextField(frame:NSRect(x:0,y:32,width:400,height:26));password.placeholderString="App-specific password (xxxx-xxxx-xxxx-xxxx)"
-        let note=NSTextField(labelWithString:"Use an app password, not your normal account password.");note.frame=NSRect(x:0,y:0,width:400,height:20);note.font = .systemFont(ofSize:11)
-        form.addSubview(email);form.addSubview(password);form.addSubview(note);alert.accessoryView=form
-        alert.addButton(withTitle:"Connect");alert.addButton(withTitle:"Cancel");alert.addButton(withTitle:"Create app password")
+        let alert=NSAlert();alert.messageText=provider == .custom ? "Connect your mail service" : "Connect \(provider.title) Mail"
+        alert.informativeText=provider.help+" Your password is stored in macOS Keychain. Latest 40 inbox messages; local sorting and drafts."
+        let custom=provider == .custom,width:CGFloat=400,height:CGFloat=custom ? 236 : 112
+        let form=NSView(frame:NSRect(x:0,y:0,width:width,height:height))
+        func field(_ y:CGFloat,_ placeholder:String,_ w:CGFloat=width,_ x:CGFloat=0,secure:Bool=false)->NSTextField{let f=secure ? NSSecureTextField(frame:NSRect(x:x,y:y,width:w,height:26)) : NSTextField(frame:NSRect(x:x,y:y,width:w,height:26));f.placeholderString=placeholder;form.addSubview(f);return f}
+        let email=field(height-37,provider == .icloud ? "you@icloud.com" : provider == .gmail ? "you@gmail.com" : "you@example.com");email.stringValue=UserDefaults.standard.string(forKey:"icloudEmail") ?? ""
+        let password=field(height-80,provider == .proton ? "Bridge password" : custom ? "Password or app password" : "App password",secure:true) as! NSSecureTextField
+        var imap:NSTextField?,imapPort:NSTextField?,smtp:NSTextField?,smtpPort:NSTextField?;let security=NSPopUpButton(frame:NSRect(x:290,y:32,width:110,height:26))
+        if custom {
+            imap=field(118,"IMAP server, e.g. imap.example.com",280);imapPort=field(118,"993",110,290);imapPort?.stringValue="993"
+            smtp=field(76,"SMTP server, e.g. smtp.example.com",280);smtpPort=field(76,"465",110,290);smtpPort?.stringValue="465"
+            let label=NSTextField(labelWithString:"Sending security:");label.frame=NSRect(x:0,y:36,width:280,height:20);form.addSubview(label)
+            security.addItems(withTitles:["SSL/TLS","STARTTLS"]);form.addSubview(security)
+        }
+        let note=NSTextField(labelWithString:provider == .proton ? "Keep Proton Mail Bridge running while you use The Stupid Mail." : "Use an app password where your provider offers one.");note.frame=NSRect(x:0,y:0,width:width,height:20);note.font = .systemFont(ofSize:11);form.addSubview(note)
+        alert.accessoryView=form
+        alert.addButton(withTitle:"Connect");alert.addButton(withTitle:"Cancel")
+        if provider.passwordPage != nil {alert.addButton(withTitle:provider == .proton ? "Get Proton Mail Bridge" : "Create app password")}
         alert.beginSheetModal(for:window){response in
-            if response == .alertThirdButtonReturn {NSWorkspace.shared.open(URL(string:provider == .icloud ? "https://account.apple.com/" : "https://myaccount.google.com/apppasswords")!);self.respond(id,error:"Create an app-specific password, then connect again.");return}
+            if response == .alertThirdButtonReturn,let page=provider.passwordPage {NSWorkspace.shared.open(URL(string:page)!);self.respond(id,error:provider == .proton ? "Set up Proton Mail Bridge, then connect again." : "Create an app-specific password, then connect again.");return}
             guard response == .alertFirstButtonReturn else {self.respond(id,error:"Cancelled.");return}
-            let address=email.stringValue.trimmingCharacters(in:.whitespacesAndNewlines).lowercased(),secret=password.stringValue.trimmingCharacters(in:.whitespacesAndNewlines).replacingOccurrences(of:" ",with:"")
-            password.stringValue=""
-            guard (provider == .icloud ? MailValidation.iCloudAddress(address) : MailValidation.address(address)),MailValidation.appPassword(secret) else {self.respond(id,error:"Check your address and use a 16-letter app password from your provider.");return}
+            let address=email.stringValue.trimmingCharacters(in:.whitespacesAndNewlines).lowercased()
+            var secret=password.stringValue.trimmingCharacters(in:.whitespacesAndNewlines);password.stringValue=""
+            if [.icloud,.gmail,.yahoo,.aol,.fastmail,.zoho].contains(provider) {secret=secret.replacingOccurrences(of:" ",with:"")}
+            var server:MailServer?=nil
+            if custom {
+                let s=MailServer(imapHost:(imap?.stringValue ?? "").trimmingCharacters(in:.whitespaces).lowercased(),imapPort:Int(imapPort?.stringValue ?? "") ?? 0,smtpHost:(smtp?.stringValue ?? "").trimmingCharacters(in:.whitespaces).lowercased(),smtpPort:Int(smtpPort?.stringValue ?? "") ?? 0,smtpImplicitTLS:security.indexOfSelectedItem == 0)
+                guard MailServer.valid(host:s.imapHost,port:s.imapPort),MailServer.valid(host:s.smtpHost,port:s.smtpPort) else {self.respond(id,error:"Check the server names and ports. Use your provider's IMAP and SMTP settings.");return}
+                server=s
+            }
+            guard (provider == .icloud ? MailValidation.iCloudAddress(address) : MailValidation.address(address)),provider.validPassword(secret) else {self.respond(id,error:provider == .proton ? "Check your address and use the password Proton Mail Bridge shows." : "Check your address and the app password from your provider.");return}
             self.mailBusy=true
             DispatchQueue.global(qos:.userInitiated).async{
                 do{
-                    let c=MailCredentials(email:address,password:secret,provider:provider)
+                    let c=MailCredentials(email:address,password:secret,provider:provider,server:server)
                     let messages=try self.jsonRecords(ICloudMail().sync(c));try MailKeychain.save(c)
                     UserDefaults.standard.set(address,forKey:"icloudEmail");UserDefaults.standard.set(provider.rawValue,forKey:"mailProvider")
                     DispatchQueue.main.async{self.mailBusy=false;self.respond(id,data:["email":address,"provider":provider.rawValue,"messages":messages])}

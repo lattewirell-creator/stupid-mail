@@ -9,7 +9,14 @@ run('python3',root/'scripts/bundle-buddy.py')
 run('node','--check',root/'dist/app.js');run('node','--check',root/'dist/buddy-ui.js');run('node','--check',root/'dist/buddy3d.bundle.js')
 release=root/('release-'+config['version']);release.mkdir(exist_ok=True)
 app=release/'The Stupid Mail.app';mac=app/'Contents/MacOS';resources=app/'Contents/Resources';mac.mkdir(parents=True,exist_ok=True);resources.mkdir(parents=True,exist_ok=True)
-run('swiftc',*[root/'macos'/x for x in ['App.swift','MailCore.swift','IMAPConnection.swift','NativeBridge.swift','BuddyAI.swift','MailCache.swift','OutlookMail.swift','AccountSetup.swift','Workspace.swift','WorkspaceCore.swift','CalendarCore.swift','CalendarBridge.swift']],'-o',mac/'The Stupid Mail','-F',sparkle,'-framework','Sparkle','-Xlinker','-rpath','-Xlinker','@executable_path/../Frameworks','-framework','AppKit','-framework','WebKit','-framework','Security','-framework','Network','-framework','EventKit','-target','arm64-apple-macos13.0','-module-cache-path','/private/tmp/stupid-mail-swift-cache')
+# One app for Apple chip and Intel Macs: build each, then join them.
+sources=[root/'macos'/x for x in ['App.swift','MailCore.swift','IMAPConnection.swift','NativeBridge.swift','BuddyAI.swift','MailCache.swift','OutlookMail.swift','AccountSetup.swift','Workspace.swift','WorkspaceCore.swift','CalendarCore.swift','CalendarBridge.swift']]
+slices=[]
+for arch in ['arm64','x86_64']:
+ out=root/'.build'/f'The Stupid Mail-{arch}';out.parent.mkdir(exist_ok=True)
+ run('swiftc',*sources,'-O','-o',out,'-F',sparkle,'-framework','Sparkle','-Xlinker','-rpath','-Xlinker','@executable_path/../Frameworks','-framework','AppKit','-framework','WebKit','-framework','Security','-framework','Network','-framework','EventKit','-target',f'{arch}-apple-macos13.0','-module-cache-path',f'/private/tmp/stupid-mail-swift-cache-{arch}')
+ slices.append(out)
+run('lipo','-create',*slices,'-output',mac/'The Stupid Mail')
 run('swiftc',root/'macos/Icon.swift','-o','/private/tmp/stupid-mail-icon-maker','-framework','AppKit','-module-cache-path','/private/tmp/stupid-mail-swift-cache')
 run('/private/tmp/stupid-mail-icon-maker',root/'macos/mail-icon-1024.png')
 shutil.copy2(root/'macos/mail-icon-1024.png',root/'dist/mail-icon.png')

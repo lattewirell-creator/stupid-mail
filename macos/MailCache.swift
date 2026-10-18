@@ -5,7 +5,7 @@ import CryptoKit
 // Passwords and API keys are never written here.
 enum MailCache {
     static func location(account: String) throws -> URL {
-        guard account.isEmpty || MailValidation.iCloudAddress(account) else {throw MailFailure(message:"Invalid local account.")}
+        guard account.isEmpty || MailValidation.address(account) else {throw MailFailure(message:"Invalid local account.")}
         let base=try FileManager.default.url(for:.applicationSupportDirectory,in:.userDomainMask,appropriateFor:nil,create:true).appendingPathComponent("The Stupid Mail/Accounts",isDirectory:true)
         try FileManager.default.createDirectory(at:base,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
         let hash=SHA256.hash(data:Data((account.isEmpty ? "demo" : account.lowercased()).utf8)).map{String(format:"%02x",$0)}.joined()

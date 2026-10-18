@@ -11,9 +11,9 @@ final class TLSMailChannel: IMAPChannel {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "StupidMail.The mail server.TLS")
     private var buffer = Data()
-    init(host: String = "imap.mail.me.com") throws {
+    init(host: String = "imap.mail.me.com", port: Int = 993) throws {
         // Network.framework validates the server certificate and hostname.
-        connection = NWConnection(host: NWEndpoint.Host(host), port: 993, using: .tls)
+        connection = NWConnection(host: NWEndpoint.Host(host), port: NWEndpoint.Port(rawValue: UInt16(clamping: port)) ?? 993, using: .tls)
         let ready = DispatchSemaphore(value: 0), lock = NSLock()
         var complete = false, connected = false
         connection.stateUpdateHandler = { state in

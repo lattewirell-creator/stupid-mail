@@ -54,6 +54,7 @@ final class FixtureChannel: IMAPChannel {
   do{try rejected.authenticate(MailCredentials(email:"test@icloud.com",password:"abcd-efgh-ijkl-mnop"));fatalError("bad login accepted")}catch{count+=1}
   check(try MailCache.decode(Data("[{\"id\":\"draft\",\"body\":\"hello\"}]".utf8)).count==1,"native cache format")
   do{_=try MailCache.decode(Data("{\"wrong\":true}".utf8));fatalError("wrong cache accepted")}catch{count+=1}
+  check(try MailCache.location(account:"me@gmail.com").lastPathComponent != MailCache.location(account:"me@outlook.com").lastPathComponent,"Gmail and Outlook get their own local mailbox")
   print("Passed \(count) mail-core checks.")
  }
 }

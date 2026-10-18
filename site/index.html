@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Stupid Mail</title>
+<meta name="description" content="A calm, free mail app that sorts your inbox into three small piles, remembers who owes you a reply, and has a little robot that drafts but never sends.">
+<meta property="og:title" content="The Stupid Mail">
+<meta property="og:description" content="You’ve got (less) mail. A calm, free mail app.">
+<link rel="canonical" href="https://stupidmail.vercel.app/">
+<meta property="og:url" content="https://stupidmail.vercel.app/">
+<meta property="og:image" content="https://stupidmail.vercel.app/img/icon-512.png">
+<link rel="icon" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #FFFDF8;
+  --ink: #33321F;
+  --ink-2: #5C5A45;
+  --clay: #DB7656;
+  --clay-deep: #A9502F;
+  --sand: #F3E9D8;
+  --sage: #5F8251;
+  --line: #E6DDCB;
+  --card: #FFFFFF;
+  --shadow: 0 1px 0 rgba(51,50,31,.06), 0 10px 24px -14px rgba(70,50,20,.45);
+  --display: 'Bricolage Grotesque', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  --text: 'Newsreader', Georgia, serif;
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --air: repeating-linear-gradient(-45deg, var(--clay) 0 14px, transparent 14px 24px, var(--sage) 24px 38px, transparent 38px 48px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #1E1D15; --ink: #F4EEDF; --ink-2: #C9C2AE; --sand: #2A2920; --line: #3A382C; --card: #26251C; --clay-deep: #E89474; --sage: #8FB37F; --shadow: 0 10px 24px -12px rgba(0,0,0,.6); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #1E1D15; --ink: #F4EEDF; --ink-2: #C9C2AE; --sand: #2A2920; --line: #3A382C; --card: #26251C; --clay-deep: #E89474; --sage: #8FB37F; --shadow: 0 10px 24px -12px rgba(0,0,0,.6); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 19px/1.6 var(--text); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--clay); outline-offset: 3px; border-radius: 6px; }
+.wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
+h1, h2, h3 { font-family: var(--display); font-weight: 750; letter-spacing: -.025em; margin: 0; }
+.kicker { font: 700 14px var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--clay-deep); margin: 0 0 14px; }
+.airmail { height: 10px; background: var(--air); opacity: .85; }
+.btn { display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 24px; border-radius: 999px; background: var(--clay); color: #fff; text-decoration: none; border: 0; cursor: pointer; font: 700 19px var(--display); box-shadow: 0 2px 0 var(--clay-deep); transition: transform .15s var(--ease), box-shadow .15s var(--ease); }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 var(--clay-deep); }
+.btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--clay-deep); }
+.btn.ghost { background: none; color: var(--ink); border: 2px solid var(--line); box-shadow: none; }
+.btn.ghost:hover { border-color: var(--clay); }
+.fine { font-size: 15px; color: var(--ink-2); }
+
+/* perforated stamp */
+.stamp { --sb: var(--clay); display: inline-grid; place-items: center; padding: 6px; background: radial-gradient(circle, transparent 3px, var(--card) 3.5px) -6px -6px / 12px 12px; filter: drop-shadow(0 2px 3px rgba(51,50,31,.18)); }
+.stamp > span { display: grid; place-items: center; background: var(--sb); color: #fff; font: 800 13px/1.05 var(--display); text-align: center; padding: 8px; }
+.postmark { display: inline-grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; border: 3px double var(--ink-2); color: var(--ink-2); font: 700 11px/1.15 var(--display); letter-spacing: .08em; text-transform: uppercase; text-align: center; padding: 10px; rotate: -12deg; opacity: .8; }
+
+/* top bar */
+.top { display: flex; align-items: center; gap: 22px; padding: 16px 0; font-family: var(--display); font-size: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; font-size: 18px; }
+.brand img { width: 30px; height: 30px; }
+.top nav { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+.top nav a { text-decoration: none; color: var(--ink-2); }
+.top nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.top nav a.get { color: #fff; background: var(--clay); padding: 7px 16px; border-radius: 999px; }
+.top nav a.get:hover { text-decoration: none; background: var(--clay-deep); }
+
+/* hero: the inbox sorts itself */
+.hero { padding: 40px 0 28px; }
+.hero-head { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(50px, 8vw, 112px); line-height: .9; font-variation-settings: 'wdth' 80; font-weight: 800; letter-spacing: -.04em; }
+.hero h1 em { font-style: normal; color: var(--clay); position: relative; white-space: nowrap; }
+.hero h1 em::after { content: ''; position: absolute; left: -2%; right: -2%; top: 52%; height: .09em; background: var(--ink); rotate: -4deg; border-radius: 9px; }
+.hero .lead { font-size: clamp(19px, 1.7vw, 22px); color: var(--ink-2); margin: 0 0 22px; }
+.hero-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.mailbox { width: 74px; height: 74px; flex: none; cursor: pointer; overflow: visible; }
+.mailbox .flag { transform-origin: 63px 44px; rotate: 90deg; transition: rotate .5s cubic-bezier(.3,1.6,.5,1); }
+.mailbox.up .flag { rotate: 0deg; }
+.hero-small { font-size: 16px; color: var(--ink-2); margin: 12px 0 0; }
+
+.desk { margin-top: 40px; background: var(--sand); border-radius: 30px; padding: 26px 26px 18px; position: relative; }
+.desk-bar { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.desk-bar p { margin: 0; font: 600 17px var(--display); color: var(--ink-2); }
+.desk-bar .btn { min-height: 44px; font-size: 16px; padding: 0 18px; }
+.tray { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.bin { display: flex; flex-direction: column; }
+.pile { position: relative; height: 214px; }
+.bin-label { margin-top: 12px; padding-top: 10px; border-top: 3px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; font: 700 18px var(--display); }
+.bin-label b { font-size: 30px; color: var(--clay); font-variant-numeric: tabular-nums; }
+.bin[data-bin="done"] .bin-label b { color: var(--sage); }
+.env { position: absolute; left: 0; right: 0; top: calc(var(--k, 0) * 58px); height: 92px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 30px 60px 10px 16px; box-shadow: var(--shadow); rotate: var(--r, 0deg); transition: rotate .5s var(--ease); overflow: hidden; }
+.env::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24px; background: var(--line); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.env b { display: block; font: 700 17px/1.2 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.env small { display: block; font-size: 15px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.env .stamp { position: absolute; top: 12px; right: 12px; padding: 4px; background-size: 8px 8px; background-position: -4px -4px; background-image: radial-gradient(circle, transparent 2px, var(--card) 2.5px); }
+.env .stamp > span { width: 26px; height: 30px; padding: 0; font-size: 13px; }
+.tray.heap .env { top: calc(var(--i) * 9px + 20px); }
+.desk-note { margin: 14px 0 0; font-size: 16px; color: var(--ink-2); max-width: 52em; }
+
+/* the app, built from its own stylesheet tokens */
+.inside { padding: 96px 0 40px; display: grid; grid-template-columns: minmax(0, .55fr) minmax(0, 1.45fr); gap: 48px; align-items: center; }
+.inside h2 { font-size: clamp(36px, 4.4vw, 58px); line-height: .98; }
+.inside p { color: var(--ink-2); }
+.seg { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--sand); font-family: var(--display); font-size: 15px; }
+.seg button { border: 0; background: none; color: var(--ink-2); padding: 7px 16px; border-radius: 999px; font: inherit; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.letter-frame { position: relative; padding: 14px; border-radius: 26px; background: var(--air); }
+.letter-frame > .stamp { position: absolute; top: -18px; right: 26px; z-index: 2; rotate: 6deg; }
+.letter-frame > .stamp > span { width: 62px; height: 72px; font-size: 12px; }
+.mock { --bg:#FAF9F5; --bar:#F0EEE6; --surface:#fff; --line:#E3DFD3; --text:#191919; --text-2:#3D3929; --muted:#7A766A; --accent:#D97757; --accent-soft:rgba(217,119,87,.14);
+  --serif: 'Newsreader', Georgia, serif; --sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  border-radius: 16px; overflow: hidden; background: var(--bg); color: var(--text); font: 13px/1.5 var(--sans); transition: background .35s var(--ease), color .35s; user-select: none; }
+.mock.dark { --bg:#1F1E1D; --bar:#262624; --surface:#2B2A27; --line:#3A3934; --text:#ECE9E1; --text-2:#D6D2C6; --muted:#9C978B; }
+.m-bar { display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 16px; background: var(--bar); border-bottom: 1px solid var(--line); }
+.m-word { display: flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; color: var(--text-2); }
+.logo-mark { display: inline-block; width: 15px; height: 15px; flex: none; border-radius: 50%; border: 4px solid var(--accent); }
+.m-search { flex: 1; max-width: 460px; margin: 0 auto; height: 32px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; padding: 0 14px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; }
+.m-pill { height: 30px; display: inline-flex; align-items: center; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; white-space: nowrap; }
+.m-app { display: grid; grid-template-columns: 170px minmax(0, 1fr); }
+.m-side { background: var(--bar); border-right: 1px solid var(--line); padding: 18px 10px; }
+.m-side div { display: flex; gap: 9px; padding: 8px 10px; border-radius: 10px; color: var(--text-2); white-space: nowrap; }
+.m-side div.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.m-main { padding: 24px 28px 14px; min-width: 0; }
+.m-eyebrow { font-size: 10px; letter-spacing: 1.6px; color: var(--muted); }
+.m-main h4 { font: 400 40px/1.1 var(--serif); letter-spacing: -1px; margin: 4px 0 2px; }
+.m-main > p { margin: 0 0 14px; color: var(--muted); }
+.m-row { display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid var(--line); }
+.m-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 14px var(--serif); color: #3d3929; flex: none; }
+.m-txt { min-width: 0; flex: 1; display: block; }
+.m-txt > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-txt .who { font-size: 12px; }
+.m-row.unread .who { font-weight: 600; }
+.m-txt .sub { color: var(--text-2); font-size: 12px; }
+.m-tag { font-size: 10px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; margin-left: 6px; }
+.m-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.m-status { display: flex; justify-content: space-between; gap: 12px; padding: 8px 16px; border-top: 1px solid var(--line); background: var(--bar); color: var(--muted); font-size: 11px; }
+
+/* radar */
+.radar-sec { padding: 72px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+.radar-sec h2, .buddy-sec h2 { font-size: clamp(40px, 5.2vw, 70px); line-height: .95; }
+.radar-sec p, .buddy-sec p { color: var(--ink-2); max-width: 30em; }
+.radar { position: relative; width: min(440px, 100%); aspect-ratio: 1; margin-inline: auto; border-radius: 50%; background:
+  radial-gradient(circle, transparent 0 24.6%, var(--line) 24.6% 25.2%, transparent 25.2% 49.6%, var(--line) 49.6% 50.2%, transparent 50.2% 74.6%, var(--line) 74.6% 75.2%, transparent 75.2%), var(--sand); overflow: hidden; }
+.radar::before, .radar::after { content: ''; position: absolute; background: var(--line); }
+.radar::before { left: 50%; top: 0; bottom: 0; width: 1.5px; } .radar::after { top: 50%; left: 0; right: 0; height: 1.5px; }
+.sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 280deg, color-mix(in srgb, var(--sage) 45%, transparent) 360deg); animation: spin 4s linear infinite; z-index: 1; }
+@keyframes spin { to { transform: rotate(1turn); } }
+.blip { color: var(--ink-2); position: absolute; z-index: 2; width: 18px; height: 18px; margin: -9px; border-radius: 50%; background: var(--ink-2); left: var(--x); top: var(--y); animation: ping 4s var(--d) infinite; }
+.blip.due { background: var(--clay); color: var(--clay); } .blip.reply { background: var(--sage); color: var(--sage); }
+.blip span { position: absolute; left: 24px; top: 50%; translate: 0 -50%; white-space: nowrap; font: 700 14px var(--display); background: var(--paper); padding: 2px 9px; border-radius: 999px; box-shadow: var(--shadow); }
+.blip.left span { left: auto; right: 24px; }
+@keyframes ping { 0% { scale: 1.6; box-shadow: 0 0 0 0 currentColor; } 30%, 100% { scale: 1; box-shadow: 0 0 0 18px transparent; } }
+.radar .you { position: absolute; z-index: 2; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: var(--ink); }
+.postcard { margin-top: 26px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; box-shadow: var(--shadow); max-width: 30em; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; }
+.postcard b { font: 700 18px var(--display); }
+.postcard .when { font: 600 15px var(--display); padding: 4px 12px; border-radius: 999px; background: var(--sand); white-space: nowrap; }
+.postcard .when.snoozed { background: none; border: 1.5px dashed var(--clay); color: var(--clay-deep); }
+.postcard small { color: var(--ink-2); font-size: 15px; grid-column: 1 / -1; }
+.postcard .row { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.postcard button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: 600 15px var(--display); padding: 7px 15px; border-radius: 999px; cursor: pointer; }
+.postcard button:hover { border-color: var(--clay); }
+.postcard button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+
+/* buddy delivers */
+.buddy-sec { padding: 72px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+.buddy-stage { position: relative; display: grid; justify-items: center; }
+.say { position: relative; margin: 0; max-width: 320px; min-height: 3.9em; display: grid; place-items: center; padding: 12px 18px; border-radius: 20px; background: var(--ink); color: var(--paper); font: 700 17px/1.3 var(--display); text-align: center; }
+.say::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: -9px; border: 9px solid transparent; border-top-color: var(--ink); }
+#buddy { width: min(260px, 64vw); height: auto; cursor: pointer; margin-top: 18px; }
+#buddy .bod { transform-origin: 120px 250px; transform-box: view-box; }
+#buddy.hop .bod { animation: hop .7s var(--ease); }
+@keyframes hop { 30% { transform: scale(1.06, .92); } 55% { transform: translateY(-26px) scale(.96, 1.05); } 80% { transform: translateY(0) scale(1.03, .97); } }
+#buddy .parcel { transform-box: view-box; }
+#buddy.hop .parcel { animation: toss .9s var(--ease); }
+@keyframes toss { 40% { transform: translate(60px, -90px) rotate(25deg); opacity: 0; } 41% { transform: translate(-60px, 40px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+#buddy .eyes { transform-box: fill-box; transform-origin: center; animation: blink 5s infinite; }
+@keyframes blink { 0%, 95%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+.provs { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 0; padding: 0; list-style: none; }
+.provs .stamp > span { padding: 8px 12px; font-size: 14px; }
+.provs li:nth-child(2) .stamp { --sb: var(--sage); } .provs li:nth-child(3) .stamp { --sb: var(--ink-2); }
+.provs li:nth-child(odd) { rotate: -2deg; } .provs li:nth-child(even) { rotate: 2deg; }
+
+/* stamp sheet */
+.sheet { padding: 72px 0; }
+.sheet h2 { font-size: clamp(36px, 4.4vw, 56px); line-height: 1; margin-bottom: 40px; max-width: 15em; }
+.stamps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.stamps .stamp { display: grid; padding: 8px; }
+.stamps .stamp > span { display: block; text-align: left; place-items: initial; background: var(--card); color: var(--ink); border: 2px solid var(--line); padding: 20px 22px; font: 400 17px/1.5 var(--text); height: 100%; }
+.stamps .stamp:nth-child(3n+1) { rotate: -1deg; } .stamps .stamp:nth-child(3n) { rotate: 1deg; }
+.stamps h3 { font-size: 23px; margin: 4px 0 6px; line-height: 1.1; }
+.stamps .val { display: inline-block; font: 800 15px var(--display); color: #fff; background: var(--clay); padding: 2px 9px; border-radius: 6px; }
+.stamps .stamp:nth-child(even) .val { background: var(--sage); }
+.stamps p { margin: 0; color: var(--ink-2); }
+
+/* sealed */
+.sealed { margin: 24px 0 0; padding: 40px; border-radius: 30px; background: var(--sand); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 36px; align-items: center; }
+.seal { width: 130px; height: 130px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #E89474, var(--clay) 55%, #A9502F); display: grid; place-items: center; color: #FFFDF8; font: 800 54px var(--display); box-shadow: inset 0 -6px 14px rgba(0,0,0,.2), 0 8px 18px -8px rgba(70,30,10,.5); clip-path: polygon(50% 0, 61% 6%, 74% 3%, 81% 14%, 94% 18%, 94% 31%, 100% 42%, 95% 54%, 99% 67%, 89% 76%, 86% 89%, 73% 92%, 63% 100%, 50% 95%, 37% 100%, 27% 92%, 14% 89%, 11% 76%, 1% 67%, 5% 54%, 0 42%, 6% 31%, 6% 18%, 19% 14%, 26% 3%, 39% 6%); }
+.sealed h2 { font-size: clamp(32px, 3.6vw, 46px); line-height: 1; margin-bottom: 14px; }
+.sealed ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; color: var(--ink-2); }
+.sealed li { padding-left: 28px; position: relative; }
+.sealed li::before { content: '✓'; position: absolute; left: 0; color: var(--sage); font: 800 18px var(--display); }
+
+/* return to sender */
+.rts { padding: 80px 0; }
+.returned { position: relative; max-width: 860px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 44px 44px 36px; box-shadow: var(--shadow); }
+.returned::before { content: ''; position: absolute; inset: 0 0 auto; height: 10px; background: var(--air); border-radius: 18px 18px 0 0; }
+.returned h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1; margin: 6px 0 18px; max-width: 12em; }
+.rubber { position: absolute; top: 34px; right: 30px; rotate: 9deg; border: 4px solid var(--clay); color: var(--clay); border-radius: 10px; padding: 6px 14px; font: 800 22px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; opacity: .85; mix-blend-mode: multiply; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rubber { mix-blend-mode: normal; } }
+.reasons { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.reasons li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; color: var(--ink-2); font-size: 18px; }
+.reasons li::before { content: '☒'; color: var(--clay); font-size: 22px; line-height: 1.2; }
+.reasons b { color: var(--ink); font-family: var(--display); }
+
+/* downloads: shipping labels */
+.dl { background: var(--clay); color: #fff; padding: 80px 0 90px; position: relative; }
+.dl::before, .dl::after { content: ''; position: absolute; left: 0; right: 0; height: 10px; background: repeating-linear-gradient(-45deg, #FFFDF8 0 14px, transparent 14px 24px, #33321F 24px 38px, transparent 38px 48px); opacity: .5; }
+.dl::before { top: 0; } .dl::after { bottom: 0; }
+.dl h2 { font-size: clamp(44px, 6vw, 84px); line-height: .92; letter-spacing: -.04em; }
+.dl .sub { font-size: 20px; margin: 16px 0 44px; max-width: 34em; color: #33321F; }
+.labels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 920px; }
+.label { position: relative; background: #FFFDF8; color: #33321F; border-radius: 16px; padding: 24px 26px 26px; display: flex; flex-direction: column; box-shadow: 0 18px 30px -18px rgba(60,20,5,.5); }
+.label:nth-child(1) { rotate: -1deg; } .label:nth-child(2) { rotate: 1deg; }
+.label .addr { font: 600 13px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #5C5A45; border-bottom: 2px dashed #E6DDCB; padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; gap: 10px; }
+.label h3 { font-size: 34px; }
+.label .for { color: #5C5A45; font-size: 16.5px; margin: 2px 0 18px; padding-right: 100px; }
+.label .go { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 18px; border-radius: 14px; background: #33321F; color: #fff; text-decoration: none; font: 700 18px var(--display); margin-top: auto; }
+.label .go:hover { background: #47452D; }
+.label .go span { font-weight: 400; font-size: 14px; opacity: .8; }
+.label .go.waiting { background: none; color: #33321F; border: 2px dashed #E6DDCB; }
+.label .note { margin: 14px 0 0; font-size: 15.5px; color: #5C5A45; line-height: 1.5; }
+.label .postmark { position: absolute; right: 18px; top: 46px; border-color: #5C5A45; color: #5C5A45; width: 84px; height: 84px; font-size: 10px; }
+.label .rubber { top: 52px; right: 22px; font-size: 18px; mix-blend-mode: normal; }
+.ver { margin-top: 30px; font-size: 16px; color: #33321F; }
+.ver a { color: #33321F; }
+
+/* letters to the editor */
+.letters { padding: 80px 0 64px; }
+.letters h2 { font-size: clamp(36px, 4.4vw, 56px); line-height: 1; margin-bottom: 8px; }
+.letters > .wrap > p { color: var(--ink-2); margin: 0 0 32px; }
+.qa { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.qa details { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; box-shadow: var(--shadow);
+  background-image: repeating-linear-gradient(transparent 0 33px, color-mix(in srgb, var(--line) 70%, transparent) 33px 34px); background-position: 0 14px; }
+.qa summary { cursor: pointer; list-style: none; font: 700 20px/1.3 var(--display); display: flex; justify-content: space-between; gap: 14px; }
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary small { display: block; font: italic 400 16px var(--text); color: var(--ink-2); margin-bottom: 2px; }
+.qa summary::after { content: '✉'; color: var(--clay); font-size: 22px; transition: rotate .25s var(--ease); }
+.qa details[open] summary::after { rotate: -18deg; }
+.qa p { color: var(--ink-2); font-size: 17.5px; line-height: 34px; margin: 8px 0 0; }
+.qa code { font-size: 15px; background: var(--sand); padding: 1px 6px; border-radius: 6px; }
+
+footer { padding: 44px 0 56px; color: var(--ink-2); font-size: 16px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; }
+footer .brand { color: var(--ink); }
+footer a { text-underline-offset: 3px; }
+footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px; }
+
+@media (max-width: 900px) {
+  .hero-head, .inside, .radar-sec, .buddy-sec { grid-template-columns: 1fr; gap: 28px; }
+  .stamps { grid-template-columns: 1fr 1fr; }
+  .labels, .qa { grid-template-columns: 1fr; }
+  .top nav a.hide-s { display: none; }
+  .m-app { grid-template-columns: 1fr; } .m-side { display: none; }
+  .buddy-stage { order: 2; }
+}
+@media (max-width: 600px) {
+  body { font-size: 18px; }
+  .hero { padding-top: 20px; }
+  .desk { padding: 18px 12px 14px; border-radius: 22px; }
+  .tray { gap: 8px; }
+  .pile { height: 172px; }
+  .env { height: 74px; padding: 26px 8px 8px; top: calc(var(--k, 0) * 47px); border-radius: 10px; }
+  .env::before { height: 20px; }
+  .env b { font-size: 14px; }
+  .env small, .env .stamp { display: none; }
+  .tray.heap .env { top: calc(var(--i) * 8px + 16px); }
+  .bin-label { font-size: 13.5px; flex-direction: column; gap: 0; } .bin-label b { font-size: 24px; line-height: 1.1; }
+  .stamps { grid-template-columns: 1fr; }
+  .sealed { grid-template-columns: 1fr; padding: 26px 20px; gap: 20px; justify-items: start; }
+  .seal { width: 96px; height: 96px; font-size: 40px; }
+  .returned { padding: 76px 20px 26px; }
+  .rubber { top: 26px; right: 16px; font-size: 18px; }
+  .label { padding: 22px 18px; }
+  .label .postmark, .label .rubber { top: 52px; }
+  .blip span { font-size: 12px; }
+  .m-pill.hide-s, .m-word span { display: none; }
+  .m-main { padding: 18px 14px 10px; }
+  .m-status span + span { display: none; }
+  footer .postmark { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  .sweep { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="airmail" aria-hidden="true"></div>
+<header class="wrap top">
+  <a class="brand" href="#"><img src="img/favicon.png" alt="">The Stupid Mail</a>
+  <nav><a class="hide-s" href="#radar">Radar</a><a class="hide-s" href="#buddy-sec">Buddy</a><a class="hide-s" href="#sealed">Privacy</a><a class="get" href="#download">Download</a></nav>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <div class="hero-head">
+      <h1>You’ve got <em>more</em> less mail.</h1>
+      <div>
+        <p class="lead">A calm, free mail app. It sorts your inbox into three small piles, remembers who owes you a reply, and comes with a little robot that writes drafts but never presses send.</p>
+        <div class="hero-cta">
+          <a class="btn" href="#download" id="heroGet">Get it free</a>
+          <svg class="mailbox" id="mailbox" viewBox="0 0 80 80" role="img" aria-label="A mailbox. Click it to raise the flag.">
+            <rect x="37" y="52" width="6" height="26" fill="var(--ink-2)"/>
+            <path d="M12 30a16 16 0 0 1 32 0v26H12z" fill="var(--clay)"/>
+            <path d="M28 14h16a16 16 0 0 1 16 16v26H44V30a16 16 0 0 0-16-16z" fill="var(--clay-deep)"/>
+            <rect x="16" y="36" width="24" height="5" rx="2.5" fill="var(--paper)" opacity=".7"/>
+            <g class="flag"><rect x="61" y="18" width="4" height="26" fill="var(--sage)"/><rect x="61" y="18" width="14" height="9" fill="var(--sage)"/></g>
+          </svg>
+        </div>
+        <p class="hero-small" id="heroSmall">For Mac and Windows.</p>
+      </div>
+    </div>
+
+    <div class="desk" aria-label="Quiet Inbox demo">
+      <div class="desk-bar">
+        <p id="deskMsg">Your inbox, before:</p>
+        <button type="button" class="btn ghost" id="sortBtn">Sort it</button>
+      </div>
+      <div class="tray heap" id="tray">
+        <div class="bin" data-bin="reply"><div class="pile"></div><div class="bin-label">Needs a reply <b>–</b></div></div>
+        <div class="bin" data-bin="later"><div class="pile"></div><div class="bin-label">Read later <b>–</b></div></div>
+        <div class="bin" data-bin="done"><div class="pile"></div><div class="bin-label">Done <b>–</b></div></div>
+      </div>
+      <p class="desk-note">This is the Quiet Inbox. Simple rules on your computer suggest a pile for each message (no AI involved), then it serves them five at a time. You can always move things yourself.</p>
+    </div>
+  </section>
+
+  <section class="wrap inside" aria-labelledby="insideTitle">
+    <div>
+      <p class="kicker">A peek inside</p>
+      <h2 id="insideTitle">Cream paper. Terracotta ink.</h2>
+      <p>It’s the same warm look as The Stupid Browser, folded into a mail app: a serif heading, soft rounded panels, and plenty of room to breathe.</p>
+      <span class="seg" role="group" aria-label="Show the app in"><button type="button" aria-pressed="true" data-v="light">Light</button><button type="button" aria-pressed="false" data-v="dark">Dark</button></span>
+    </div>
+    <div class="letter-frame">
+      <span class="stamp" aria-hidden="true"><span>2.5<br>FREE</span></span>
+      <div class="mock" id="mock" aria-hidden="true">
+        <div class="m-bar">
+          <span class="m-word"><i class="logo-mark"></i><span>The Stupid Mail</span></span>
+          <span class="m-search">⌕ Search your mail…</span>
+          <span class="m-pill hide-s">Customize</span>
+          <span class="m-pill">Ask Buddy</span>
+        </div>
+        <div class="m-app">
+          <div class="m-side">
+            <div class="on">◉ Quiet Inbox</div><div>▣ All mail</div><div>◷ Follow-up Radar</div><div>☾ Snoozed</div><div>☆ Starred</div><div>▤ Drafts</div>
+          </div>
+          <div class="m-main">
+            <div class="m-eyebrow">YOUR LITTLE CORNER OF THE INTERNET</div>
+            <h4>Inbox</h4>
+            <p>A few good emails. And the rest of them.</p>
+            <div class="m-row unread"><span class="m-av" style="background:#e6d9ee">AM</span><span class="m-txt"><span class="who">Alex Morgan</span><span class="sub">A very important question · Tacos or pizza tonight?</span></span><span class="m-time">9:41</span></div>
+            <div class="m-row unread"><span class="m-av" style="background:#efd8aa">M</span><span class="m-txt"><span class="who">Mom<span class="m-tag">Follow up today</span></span><span class="sub">Just checking in ♡ · Did you eat something other than coffee?</span></span><span class="m-time">8:15</span></div>
+            <div class="m-row"><span class="m-av" style="background:#cddfe9">JC</span><span class="m-txt"><span class="who">Jamie Chen</span><span class="sub">Look what I made 👀 · Finally finished that side project.</span></span><span class="m-time">Yesterday</span></div>
+          </div>
+        </div>
+        <div class="m-status"><span>● Saved on this device</span><span>⌘N New · ⌘F Search · ⌘R Refresh</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap airmail" aria-hidden="true"></div>
+
+  <section class="wrap radar-sec" id="radar">
+    <div>
+      <p class="kicker">Follow-up Radar</p>
+      <h2>It remembers who owes you a reply.</h2>
+      <p>Give a sent email a date. When the day comes, it lights up as due. If a reply seems to have arrived, Radar points it out so you can check before nudging anyone. It matches by thread, or by sender, subject and date, so treat it as a hint.</p>
+      <div class="postcard" id="postcard">
+        <b>Slow mornings, good reads.</b><span class="when" id="when">In your inbox</span>
+        <small>Not today? Snooze it until tomorrow at 9, wake it early, or undo your last change.</small>
+        <div class="row"><button type="button" id="snoozeBtn">☾ Tomorrow</button><button type="button" id="undoBtn" disabled>↶ Undo</button></div>
+      </div>
+      <p class="fine">Radar and snooze update while the app is open. There are no notifications after you quit it.</p>
+    </div>
+    <div class="radar" role="img" aria-label="A radar screen with three reminders: one due today, one with a possible reply, one coming up next week.">
+      <div class="sweep"></div>
+      <span class="you"></span>
+      <span class="blip due left" style="--x:70%;--y:28%;--d:.47s"><span>Kitchen quote · due</span></span>
+      <span class="blip reply" style="--x:30%;--y:66%;--d:2.57s"><span>Tacos? · maybe replied</span></span>
+      <span class="blip" style="--x:22%;--y:24%;--d:3.48s"><span>Next week</span></span>
+    </div>
+  </section>
+
+  <div class="wrap airmail" aria-hidden="true"></div>
+
+  <section class="wrap buddy-sec" id="buddy-sec">
+    <div class="buddy-stage">
+      <p class="say" id="say" aria-live="polite">Special delivery! I drafted a reply. You press send.</p>
+      <svg id="buddy" viewBox="0 0 240 270" role="img" aria-label="Buddy, a little robot carrying an envelope. Click it.">
+        <ellipse cx="120" cy="258" rx="66" ry="8" fill="#33321F" opacity=".14"/>
+        <g class="bod">
+          <rect x="62" y="158" width="116" height="90" rx="38" fill="var(--sage)"/>
+          <path d="M70 158q50 24 100 0v16q-50 22-100 0z" fill="var(--clay)"/>
+          <rect x="50" y="34" width="140" height="124" rx="54" fill="#F3E9D8" stroke="#33321F" stroke-opacity=".15" stroke-width="2"/>
+          <path d="M64 66q56-58 112 0" fill="var(--clay)"/>
+          <rect x="60" y="60" width="120" height="13" rx="6.5" fill="#A9502F"/>
+          <circle cx="120" cy="24" r="10" fill="var(--clay)"/>
+          <g class="eyes"><ellipse cx="98" cy="106" rx="8.5" ry="11.5" fill="#33321F"/><ellipse cx="142" cy="106" rx="8.5" ry="11.5" fill="#33321F"/></g>
+          <path d="M109 131q11 9 22 0" fill="none" stroke="#33321F" stroke-width="5" stroke-linecap="round"/>
+          <g class="parcel">
+            <rect x="78" y="176" width="84" height="56" rx="6" fill="#FFFDF8" stroke="#33321F" stroke-opacity=".2" stroke-width="2"/>
+            <path d="M80 179l40 28 40-28" fill="none" stroke="var(--clay)" stroke-width="4" stroke-linejoin="round"/>
+            <rect x="140" y="212" width="14" height="14" rx="2" fill="var(--clay)"/>
+          </g>
+          <rect x="54" y="186" width="30" height="24" rx="12" fill="var(--sage)"/>
+          <rect x="156" y="186" width="30" height="24" rx="12" fill="var(--sage)"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <p class="kicker">Buddy</p>
+      <h2>A robot that drafts. You do the sending.</h2>
+      <p>Buddy is the little 3D robot from The Stupid Browser, now working in the mail room. Ask it to sum up a long email or help you write back. It never sends anything on its own, and it only reads an email when you switch on <em>Include this email</em>.</p>
+      <p>Give it a hat, glasses, a scarf or a backpack. Pick it up and toss it. It bounces.</p>
+      <ul class="provs" aria-label="AI providers you can pick">
+        <li><span class="stamp"><span>Ollama</span></span></li>
+        <li><span class="stamp"><span>OpenAI</span></span></li>
+        <li><span class="stamp"><span>Claude</span></span></li>
+      </ul>
+      <p class="fine">OpenAI and Claude use your own API key and may charge you for use. Ollama runs a model on your own computer, so the question stays there.</p>
+    </div>
+  </section>
+
+  <section class="wrap sheet" aria-labelledby="sheetTitle">
+    <p class="kicker">Also in the envelope</p>
+    <h2 id="sheetTitle">A whole sheet of small, useful stamps.</h2>
+    <div class="stamps">
+      <div class="stamp"><span><i class="val">iCloud · Gmail · Outlook · Yahoo · Proton · more</i><h3>Your address, as it is</h3><p>iCloud, Gmail, Yahoo, AOL, Fastmail, Zoho and GMX connect with an app password, Proton Mail through its Bridge, and Outlook signs in on Microsoft’s own page. Anything else works too: just type in its servers. Wherever your provider offers app passwords, your normal password never goes in.</p></span></div>
+      <div class="stamp"><span><i class="val">⌘N ⌘F ⌘R</i><h3>Keyboard first</h3><p>Write, search (or just press /) and refresh without touching the mouse. Drafts save themselves while you type.</p></span></div>
+      <div class="stamp"><span><i class="val">Calendar</i><h3>Spot the meetings</h3><p>Buddy finds dates in your mail, right on your computer, and suggests events. You check everything and confirm before it’s added.</p></span></div>
+      <div class="stamp"><span><i class="val">Action Desk</i><h3>Email to task</h3><p>Turn a message into a task with a due date and a link back to it. It stays even after the email scrolls away.</p></span></div>
+      <div class="stamp"><span><i class="val">♫ Widgets</i><h3>Make it yours</h3><p>Theme, accent, density, corners, a checklist, a clock, and soft background music made in the app. Nothing autoplays.</p></span></div>
+      <div class="stamp"><span><i class="val">Slack · Teams</i><h3>Chats next door</h3><p>Open your chats in their own window, or share a short excerpt to a channel you set up. You see what goes and confirm it.</p></span></div>
+    </div>
+
+    <div class="sealed" id="sealed">
+      <div class="seal" aria-hidden="true">S</div>
+      <div>
+        <h2>Sealed, not shared.</h2>
+        <ul>
+          <li>Passwords, AI keys and your Outlook sign-in live in the macOS Keychain, or encrypted for your Windows account, never in the app’s web view.</li>
+          <li>Your mail, drafts and sorting are cached in private files on your computer, separately for each address.</li>
+          <li>Emails show as text without outside images or tracking scripts, so nobody learns when you opened them.</li>
+          <li>Every email asks for one last confirmation before it goes out.</li>
+          <li>New versions are posted on GitHub and here. Automatic updates are built in and switch on in a later version.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap rts" aria-labelledby="rtsTitle">
+    <div class="returned">
+      <span class="rubber" aria-hidden="true">Return to sender</span>
+      <p class="kicker">Honest limits</p>
+      <h2 id="rtsTitle">Things it sends back, for now.</h2>
+      <ul class="reasons">
+        <li><span><b>Big inboxes.</b> It reads your latest 40 inbox messages, not other server folders.</span></li>
+        <li><span><b>Attachments.</b> None yet, for reading or sending. Very large emails may need your provider’s app.</span></li>
+        <li><span><b>A second account.</b> One at a time. Connecting another replaces the saved sign-in, while drafts and sorting are kept per address.</span></li>
+        <li><span><b>Outlook out of the box.</b> For now you need your own free Microsoft app registration. The guide walks you through it.</span></li>
+        <li><span><b>Official seals.</b> It isn’t notarized by Apple or code-signed for Windows, so your computer asks once the first time you open it.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="dl" id="download">
+    <div class="wrap">
+      <h2>Mail one to yourself.</h2>
+      <p class="sub">It’s free. No sign-up, no newsletter, which would be a bit rich for a mail app.</p>
+      <div class="labels">
+        <div class="label" id="mac">
+          <div class="addr"><span>From: GitHub</span><span>To: your Mac</span></div>
+          <span class="postmark" id="macMark">The Stupid Mail · Latest</span>
+          <h3>Mac</h3>
+          <p class="for" id="macFor">macOS 13 or newer · Apple chip and Intel</p>
+          <a class="go" data-plat="mac" href="https://github.com/lattewirell-creator/stupid-mail/releases/latest">Download for Mac <span id="macSize">.zip</span></a>
+          <p class="note">Unzip it and drag The Stupid Mail into Applications. Updating? Quit the old one and replace it; your accounts and drafts stay.</p>
+        </div>
+        <div class="label" id="win">
+          <div class="addr"><span>From: GitHub</span><span>To: your PC</span></div>
+          <span class="rubber" id="winSoon">Coming soon</span>
+          <h3>Windows</h3>
+          <p class="for">Windows 10 or 11</p>
+          <a class="go waiting" data-plat="win" href="https://github.com/lattewirell-creator/stupid-mail/releases/latest">Not posted yet <span>See releases</span></a>
+          <p class="note" id="winNote">The Windows version is still in the mail. When it arrives, the download appears right here.</p>
+        </div>
+      </div>
+      <p class="ver" id="ver">All versions and what’s new are on <a href="https://github.com/lattewirell-creator/stupid-mail/releases">GitHub</a>.</p>
+    </div>
+  </section>
+
+  <section class="letters" aria-labelledby="lettersTitle">
+    <div class="wrap">
+      <h2 id="lettersTitle">Letters to the editor</h2>
+      <p>The first-time questions, answered.</p>
+      <div class="qa">
+        <details open>
+          <summary><span><small>Dear Stupid Mail,</small>macOS won’t open you. Rude?</span></summary>
+          <p>It’s because the app isn’t from the App Store or notarized by Apple. Open System Settings → Privacy &amp; Security, scroll down and click Open Anyway. Only once, promise.</p>
+        </details>
+        <details>
+          <summary><span><small>Dear Stupid Mail,</small>Which password do I give you?</span></summary>
+          <p>Never your normal one. iCloud uses an app-specific password from account.apple.com. Gmail needs 2-Step Verification and an app password. Outlook signs in on Microsoft’s page. The <a href="https://github.com/lattewirell-creator/stupid-mail/blob/master/docs/accounts.md">setup guide</a> has every step.</p>
+        </details>
+        <details>
+          <summary><span><small>Dear Stupid Mail,</small>How do I wake Buddy up?</span></summary>
+          <p>Click the gear in Buddy’s panel, pick Ollama, OpenAI or Claude and type a model name. Ollama needs a model installed and running on your computer (at <code>127.0.0.1:11434</code>). OpenAI and Claude need your own API key.</p>
+        </details>
+        <details>
+          <summary><span><small>Dear Stupid Mail,</small>I have an older version.</span></summary>
+          <p>Install the newest one once, replacing the old app in Applications. From 2.5 on it checks for updates itself and installs them when you quit. Your accounts, drafts and cached mail live outside the app, so they stay.</p>
+        </details>
+        <details>
+          <summary><span><small>Dear Stupid Mail,</small>Did my email actually send?</span></summary>
+          <p>You confirm every send. If the confirmation fails, look in your provider’s Sent folder before trying again, so it doesn’t go twice. “Sent here” in the app is a local list, not your server’s Sent folder.</p>
+        </details>
+        <details>
+          <summary><span><small>Dear Stupid Mail,</small>Can I bring two addresses?</span></summary>
+          <p>Not at the same time yet. Connecting another replaces the saved sign-in. Drafts, reminders and sorting are kept per address for when you switch back.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="airmail" aria-hidden="true"></div>
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="img/favicon.png" alt="">The Stupid Mail</a>
+    <a href="https://github.com/lattewirell-creator/stupid-mail">Source code</a>
+    <a href="https://github.com/lattewirell-creator/stupid-mail/issues">Report a problem</a>
+    <a href="https://lattewirell-creator.github.io/stupid-browser/">Sister app: The Stupid Browser</a>
+    <span class="postmark" aria-hidden="true">Free · No account · Posted</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* the desk: a heap of envelopes that sorts itself into the Quiet Inbox piles */
+  const MAIL = [
+    ['Alex Morgan', 'Tacos or pizza tonight?', 'reply', '#DB7656'],
+    ['The Sunday Club', 'Slow mornings, good reads.', 'later', '#5F8251'],
+    ['Receipts', 'Your order is on its way', 'done', '#5C5A45'],
+    ['Mom', 'Just checking in ♡', 'reply', '#DB7656'],
+    ['Offscreen', 'Good things happen offline.', 'later', '#5F8251'],
+    ['Figma', 'A fresh canvas is calling', 'done', '#5C5A45'],
+    ['Jamie Chen', 'Look what I made 👀', 'later', '#5F8251'],
+    ['Newsletter', 'This week in nothing much', 'done', '#5C5A45']
+  ];
+  const tray = document.getElementById('tray'), bins = {}, sortBtn = document.getElementById('sortBtn'), deskMsg = document.getElementById('deskMsg');
+  tray.querySelectorAll('.bin').forEach((b) => { bins[b.dataset.bin] = b; });
+  const envs = MAIL.map(([who, sub, bin, col], i) => {
+    const e = document.createElement('div'); e.className = 'env'; e.dataset.bin = bin;
+    e.style.setProperty('--i', i); e.style.setProperty('--r', ((i * 37) % 13 - 6) + 'deg');
+    const b = document.createElement('b'); b.textContent = who;
+    const s = document.createElement('small'); s.textContent = sub;
+    const st = document.createElement('span'); st.className = 'stamp'; st.setAttribute('aria-hidden', 'true');
+    const si = document.createElement('span'); si.style.background = col; si.textContent = '✉'; st.append(si);
+    e.append(b, s, st); bins.later.querySelector('.pile').append(e); return e;
+  });
+  let sorted = false;
+  const layout = (toSorted) => {
+    const first = envs.map((e) => e.getBoundingClientRect());
+    tray.classList.toggle('heap', !toSorted);
+    const counts = { reply: 0, later: 0, done: 0 };
+    envs.forEach((e) => {
+      const bin = toSorted ? e.dataset.bin : 'later';
+      bins[bin].querySelector('.pile').append(e);
+      e.style.setProperty('--k', counts[e.dataset.bin]);
+      e.style.setProperty('--r', toSorted ? ((counts[e.dataset.bin] % 2 ? 1.5 : -1.5) + 'deg') : ((Number(e.style.getPropertyValue('--i')) * 37) % 13 - 6) + 'deg');
+      counts[e.dataset.bin]++;
+    });
+    Object.entries(bins).forEach(([k, b]) => { b.querySelector('.bin-label b').textContent = toSorted ? counts[k] : '–'; });
+    if (!reduce) envs.forEach((e, i) => {
+      const last = e.getBoundingClientRect(), dx = first[i].left - last.left, dy = first[i].top - last.top;
+      if (dx || dy) e.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 520, delay: i * 70, easing: 'cubic-bezier(.3,1.3,.5,1)', fill: 'backwards' });
+    });
+    sorted = toSorted;
+    sortBtn.textContent = toSorted ? 'Mess it up again' : 'Sort it';
+    deskMsg.textContent = toSorted ? 'Your inbox, after. Much better.' : 'Your inbox, before:';
+  };
+  sortBtn.addEventListener('click', () => layout(!sorted));
+  if (reduce) layout(true);
+  else {
+    const io = new IntersectionObserver((ents) => { if (ents[0].isIntersecting) { io.disconnect(); setTimeout(() => { if (!sorted) layout(true); }, 900); } }, { threshold: .4 });
+    io.observe(tray);
+  }
+
+  /* the mailbox flag */
+  const box = document.getElementById('mailbox');
+  box.addEventListener('click', () => box.classList.toggle('up'));
+  document.getElementById('heroGet').addEventListener('mouseenter', () => box.classList.add('up'));
+
+  /* light / dark peek; starts in the visitor's own mode */
+  const mock = document.getElementById('mock'), segs = document.querySelectorAll('.seg button');
+  const setMock = (v) => { segs.forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === v))); mock.classList.toggle('dark', v === 'dark'); };
+  segs.forEach((b) => b.addEventListener('click', () => setMock(b.dataset.v)));
+  if (matchMedia('(prefers-color-scheme: dark)').matches) setMock('dark');
+
+  /* snooze and undo */
+  const when = document.getElementById('when'), snoozeBtn = document.getElementById('snoozeBtn'), undoBtn = document.getElementById('undoBtn');
+  snoozeBtn.addEventListener('click', () => { when.textContent = '☾ Tomorrow, 9:00'; when.classList.add('snoozed'); snoozeBtn.disabled = true; undoBtn.disabled = false; });
+  undoBtn.addEventListener('click', () => { when.textContent = 'In your inbox'; when.classList.remove('snoozed'); snoozeBtn.disabled = false; undoBtn.disabled = true; });
+
+  /* buddy, the mail carrier */
+  const buddy = document.getElementById('buddy'), sayEl = document.getElementById('say');
+  const LINES = ['Special delivery! I drafted a reply. You press send.', 'Summary: Mom says eat something that isn’t coffee. She suggests soup.',
+    'Here’s a draft: “Pizza. Obviously. See you at 7?” Edit away.', 'I could send it for you. I won’t. That’s the whole point of me.',
+    'Return to sender? I don’t know her.', 'I only read the email if you tick “Include this email”. Manners.', 'Wheee. Okay, back to sorting.'];
+  let li = 0;
+  buddy.addEventListener('click', () => {
+    li = (li + 1) % LINES.length; sayEl.textContent = LINES[li];
+    if (!reduce) { buddy.classList.remove('hop'); void buddy.getBoundingClientRect(); buddy.classList.add('hop'); }
+  });
+
+  /* where are you reading this from? */
+  const ua = navigator.userAgent, plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  const isPhone = /Android|iPhone|iPad|iPod/i.test(ua) || (/Mac/i.test(plat) && navigator.maxTouchPoints > 1);
+  if (isPhone) document.getElementById('heroSmall').textContent = 'It’s a computer app. Open this page on your Mac to get it.';
+
+  /* download links from the latest GitHub release */
+  const fmtSize = (b) => (b >= 1048576 ? Math.round(b / 1048576) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+  fetch('https://api.github.com/repos/lattewirell-creator/stupid-mail/releases/latest').then((r) => (r.ok ? r.json() : Promise.reject())).then((rel) => {
+    const assets = rel.assets || [], find = (end) => assets.find((x) => x.name.endsWith(end));
+    const macNew = find('-mac.zip'), mac = macNew || find('The.Stupid.Mail.Mac.zip'), win = find('-windows-setup.exe');
+    if (mac) {
+      document.querySelectorAll('[data-plat="mac"]').forEach((a) => { a.href = mac.browser_download_url; });
+      if (mac.size) document.getElementById('macSize').textContent = fmtSize(mac.size);
+    }
+    if (win) {
+      const a = document.querySelector('[data-plat="win"]');
+      a.href = win.browser_download_url; a.classList.remove('waiting');
+      a.textContent = 'Download installer '; const s = document.createElement('span'); s.textContent = win.size ? fmtSize(win.size) : '.exe'; a.append(s);
+      document.getElementById('winSoon').remove();
+      document.getElementById('winNote').textContent = 'If Windows says “Windows protected your PC”, click More info, then Run anyway.';
+      document.getElementById('heroSmall').textContent = 'For Mac and Windows.';
+    }
+    const v = String(rel.tag_name || '').replace(/^v/, '');
+    if (v) {
+      document.getElementById('macMark').textContent = 'The Stupid Mail · Version ' + v;
+      const ver = document.getElementById('ver'), link = document.createElement('a');
+      link.href = rel.html_url || 'https://github.com/lattewirell-creator/stupid-mail/releases'; link.textContent = 'what’s new';
+      ver.replaceChildren(`Version ${v}. See `, link, ' and all versions on GitHub.');
+      setTimeout(() => box.classList.add('up'), 1600);
+    }
+  }).catch(() => {});
+})();
+</script>
+</body>
+</html>

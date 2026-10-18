@@ -1,12 +1,14 @@
-# The Stupid Mail 2.5
+# The Stupid Mail 2.6
 
-A cream-and-terracotta Mac mail app with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
+A cream-and-terracotta mail app for Mac and Windows with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
-[Download the latest Mac release](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
+[Website](https://stupidmail.vercel.app) · [Download for Mac or Windows](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
 
 ## Open
 
-Unzip the Mac download, quit any older version, and drag The Stupid Mail.app into Applications. Requires Apple silicon and macOS 13 or later. This is an ad-hoc-signed local build, not a notarized App Store release.
+**Mac:** unzip the download, quit any older version, and drag The Stupid Mail.app into Applications. One app for Apple chip and Intel Macs, macOS 13 or later. This is an ad-hoc-signed build, not a notarized App Store release.
+
+**Windows:** run `StupidMail-<version>-windows-setup.exe`. Windows 10 or 11; it installs for your user only (no administrator prompt) and uses Windows' built-in Edge WebView2. Windows SmartScreen may warn because the installer isn't code-signed: choose **More info → Run anyway**. See [Windows notes](docs/windows.md).
 
 ## Connect your mail
 
@@ -17,6 +19,12 @@ Choose **Connect mail** and select:
 | iCloud | Primary iCloud address and Apple app-specific password |
 | Gmail / Workspace | Full address and Google app password; requires 2-Step Verification and account policy support |
 | Outlook / Hotmail / Microsoft 365 | Microsoft browser sign-in; this build requires your own Microsoft application client ID |
+| Yahoo / AOL | Full address and a 16-letter app password from the account's security page |
+| Fastmail | Full address and an app password with IMAP/SMTP access |
+| Zoho Mail (zoho.com) | Full address and an app-specific password; turn on IMAP in Zoho Mail |
+| GMX | Full address; turn on IMAP in GMX settings (app password if two-factor is on) |
+| Proton Mail | Through Proton Mail Bridge (paid Proton plans): set Bridge's IMAP and SMTP to SSL and use the Bridge password |
+| Any other service | Choose **Other mail service** and enter its IMAP (SSL/TLS) and SMTP (SSL/TLS or STARTTLS) servers |
 
 Follow the [setup guide](docs/accounts.md), including Outlook app-registration steps. One account is active at a time. Connecting another replaces its saved sign-in; drafts and sorting remain separate by address. Normal account passwords should never be entered in the app.
 
@@ -40,7 +48,7 @@ Questions go to your selected provider. Email content is included only when **In
 
 ## Storage and limits
 
-Passwords and AI keys are in macOS Keychain. Microsoft access and refresh tokens also stay in Keychain. Tokens and passwords never cross into the web interface. Provider endpoints are fixed; HTTPS/TLS certificates are validated.
+Passwords and AI keys are in macOS Keychain. Microsoft access and refresh tokens also stay in Keychain. Tokens and passwords never cross into the web interface. Provider endpoints are fixed for every listed provider; with **Other mail service** the app connects only to the servers you enter, always encrypted. TLS certificates are validated.
 
 Drafts, cached mail, and local decisions are stored per address in private Application Support files, with atomic writes. The cache is not additionally encrypted by the app. Disconnect removes saved credentials, while local drafts and mail remain for reconnecting. Disconnect does not revoke Microsoft consent.
 
