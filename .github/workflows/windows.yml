@@ -1,0 +1,43 @@
+# Builds and tests The Stupid Mail for Windows on GitHub's Windows machines, and makes the installer.
+# The installer is signed for the in-app updater on the publishing Mac (scripts/sign-release.py), not here.
+name: Windows
+on:
+  push:
+    paths: ["windows/**", "dist/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust
+        run: rustup update stable && rustup default stable
+      - name: Test
+        run: cargo test --release
+      - name: Build
+        run: cargo build --release
+      - name: Installer
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $nsis)) { choco install nsis -y --no-progress; $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          & $nsis /V2 "/DVERSION=$version" installer.nsi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist, target\release\stupid-mail.exe | Format-Table Name, Length
+      - name: Start-up check
+        shell: pwsh
+        run: |
+          # The program starts (WebView2 is on the runner) and stays up, then is closed.
+          $p = Start-Process -FilePath target\release\stupid-mail.exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { Write-Error "The app exited early with code $($p.ExitCode)"; exit 1 }
+          Stop-Process -Id $p.Id
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: windows/dist/*.exe
