@@ -1,5 +1,6 @@
 import AppKit
 import EventKit
+import UniformTypeIdentifiers
 @preconcurrency import WebKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
@@ -75,6 +76,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     @objc func searchMail() { webView.evaluateJavaScript("if(!document.querySelector('dialog[open]'))document.getElementById('search').focus()", completionHandler: nil) }
     @objc func showAbout() {
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "The Stupid Mail", .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.2", .credits: NSAttributedString(string: "Quiet Inbox • Follow-up Radar • AI Buddy\n\niCloud, Gmail, and Outlook inbox and sending. Sorting, follow-up reminders, and drafts stay on this Mac. Latest 40 inbox messages. Attachments are not supported yet.")])
+    }
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        guard frame.isMainFrame, frame.request.url?.standardizedFileURL == Bundle.main.resourceURL?.appendingPathComponent("Web/index.html").standardizedFileURL, window.attachedSheet == nil else { completionHandler(nil); return }
+        let picker = NSOpenPanel()
+        picker.canChooseDirectories = false; picker.canChooseFiles = true; picker.allowsMultipleSelection = false
+        picker.allowedContentTypes = [.png, .jpeg, .webP]
+        picker.beginSheetModal(for: window) { result in completionHandler(result == .OK ? picker.urls : nil) }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if mailBusy || buddyBusy {

@@ -1,4 +1,4 @@
-# The Stupid Mail 2.3
+# The Stupid Mail 2.4
 
 A cream-and-terracotta Mac mail app with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
@@ -53,11 +53,17 @@ python3 scripts/test.py
 python3 scripts/build-mac.py
 ```
 
-The build creates `release-2.3/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
+The build creates `release-2.4/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
 
 Tests cover MIME/IMAP framing and injection resistance, provider migration, OAuth token parsing, safe Outlook message conversion, frontend draft handling, snooze/undo, and Buddy context isolation. An optional localhost SMTP transport fixture is available in `tests/smtp_transport.py`.
 
 Live account authentication, Microsoft consent, real-provider AI responses, and visual UI behavior still need testing with the owner’s setup. Fixture tests do not establish live connectivity.
+
+## Version 2.4
+
+Buddy uses the unchanged 3D model/animation source from The Stupid Browser (`9234994`), at its normal 116 × 128 size, with the browser’s full appearance catalog: seven shapes, ten body/outfit colours plus custom colours, six eye glows plus custom colours, five eye and five mouth styles, nine hats, six glasses styles, backpack/scarf toggles, name, and a locally cropped face picture. The Hiker is the normal default. Customize has a spin-and-poke preview and **Reset to browser Buddy**.
+
+This version starts with the normal browser appearance instead of restoring the older Mail robot look. The old appearance key is retained as a backup. New appearance choices save separately. Mail-specific chat context and permission handling remain separate from the browser; browser credentials and browsing history are not imported. Reduced-motion mode still uses the static fallback.
 
 ## Version 2.3
 

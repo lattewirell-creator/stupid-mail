@@ -4,6 +4,7 @@ function $(s){if(!els.has(s))els.set(s,new E());return els.get(s)}
 const listeners={};let selected={id:'one',subject:'One',email:'a@example.com',body:'Private one'},resolveAnswer,lastRequest,used;
 const context=vm.createContext({$,native:true,console,matchMedia:()=>({matches:true}),localStorage:{getItem:()=>null,setItem(){}},document:{createElement:()=>new E(),querySelectorAll:()=>[],addEventListener(){}},bridge:async(action,fields)=>{if(action==='buddyStatus')return{ready:true,provider:'ollama',model:'fixture'};if(action==='buddyAsk'){lastRequest=fields;return new Promise(resolve=>resolveAnswer=resolve)}},mailForBuddy:()=>selected,useBuddyDraft:(text,id)=>{used={text,id}},addEventListener:(n,f)=>(listeners[n]??=[]).push(f)});context.window=context;
 const emit=name=>{for(const f of listeners[name]||[])f()};const tick=()=>new Promise(setImmediate);
+vm.runInContext(fs.readFileSync('dist/buddy-look.js','utf8'),context);
 vm.runInContext(fs.readFileSync('dist/buddy-ui.js','utf8'),context);
 (async()=>{
  $('#buddy-panel').hidden=true;$('#buddy-toggle').onclick();await tick();$('#buddy-include').checked=true;$('#buddy-question').value='Summarize';$('#buddy-form').onsubmit({preventDefault(){}});assert.ok(lastRequest.context.includes('Private one'));

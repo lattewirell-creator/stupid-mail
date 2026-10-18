@@ -1,16 +1,26 @@
 (() => {
 let settings={ready:false},busy=false,answer='',answerMailID=null,robot=null,epoch=0;
 const panel=$('#buddy-panel'),log=$('#buddy-log'),include=$('#buddy-include');
-let look={name:'Buddy',color:'cream',shape:'hiker',hat:'none'};
-try{look={...look,...JSON.parse(localStorage.getItem('stupid-mail-buddy-look')||'{}')}}catch{}
-if(!['clay','mint','sky','grape','cream'].includes(look.color))look.color='clay';
-look.name=String(look.name||'Buddy').slice(0,20);
-function applyLook(){ $('#buddy-name').value=look.name;$('#buddy-color').value=look.color;$('#buddy-panel-title').textContent=look.name;$('.buddy-caption').textContent=look.name;$('#buddy-shape').value=look.shape||'hiker';$('#buddy-hat').value=look.hat||'none';robot?.setLook({color:look.color,shape:look.shape||'hiker',hat:look.hat||'none',glow:'amber'}) }
+const lookKey='stupid-mail-buddy-browser-look-v1';
+let look=BuddyLook.normalize(),preview=null;
+// Use the real browser default for migration; retain the old Mail key as a backup.
+try{look=BuddyLook.normalize(JSON.parse(localStorage.getItem(lookKey)||'{}'))}catch{}
+const titles={hiker:'Hiker',ball:'Ball',round:'Round',cube:'Cube',capsule:'Capsule',egg:'Egg',tv:'TV',tophat:'Top hat',lash:'Lashes',dot:'Dots'};
+function applyLook(){
+ $('#buddy-name').value=look.name;$('#buddy-panel-title').textContent=look.name;$('.buddy-caption').textContent=look.name;
+ for(const [key,values]of Object.entries(BuddyLook.choices)){
+  const select=$('#buddy-'+key);select.innerHTML=values.map(value=>`<option value="${value}">${titles[value]||value[0].toUpperCase()+value.slice(1)}</option>`).join('')+(/^#/.test(look[key])?`<option value="${look[key]}">Custom colour</option>`:'');select.value=look[key];
+  if(['color','glow','outfit'].includes(key))$('#buddy-'+key+'-custom').value=/^#/.test(look[key])?look[key]:(key==='glow'?BuddyLook.glows:BuddyLook.colors)[look[key]];
+ }
+ $('#buddy-backpack').checked=look.backpack;$('#buddy-scarf').checked=look.scarf;$('#buddy-photo-remove').hidden=!look.image;
+ robot?.setLook(look);preview?.setLook(look);
+}
+function saveLook(patch){look=BuddyLook.normalize({...look,...patch});applyLook();try{localStorage.setItem(lookKey,JSON.stringify(look));$('#buddy-look-status').textContent='Saved on this Mac.'}catch{$('#buddy-look-status').textContent='Could not save Buddy’s look. Free some space and try again.'}}
 function bubble(text,who='buddy'){const p=document.createElement('p');p.className=who==='user'?'buddy-question':'buddy-answer';p.textContent=text;log.append(p);log.scrollTop=log.scrollHeight}
 function sharing(){const m=window.mailForBuddy();const cloud=settings.provider&&settings.provider!=='ollama';$('#buddy-sharing').textContent=include.checked&&m?`${cloud?'Shares':'Uses locally'} “${m.subject.slice(0,55)}” with ${settings.provider||'your chosen AI'} when you ask.`:'No email is included. Buddy receives only your question.'}
 function setStatus(s){settings=s;robot?.setState({sleepy:!s.ready});$('#buddy-provider').textContent=busy?'Thinking…':s.ready?`${s.provider==='ollama'?'Ollama · local':s.provider==='openai'?'OpenAI':'Claude'} · ${s.model}`:'Choose an AI in settings to wake Buddy up.';sharing()}
-function open(){panel.hidden=false;$('#buddy-toggle').setAttribute('aria-expanded','true');sharing();if(native)bridge('buddyStatus').then(setStatus).catch(e=>bubble(e.message));$('#buddy-question').focus();robot?.poke()}
-function close(){panel.hidden=true;$('#buddy-toggle').setAttribute('aria-expanded','false');$('#buddy-toggle').focus()}
+function open(){panel.hidden=false;preview?.setVisible($('#buddy-customize').open);$('#buddy-toggle').setAttribute('aria-expanded','true');sharing();if(native)bridge('buddyStatus').then(setStatus).catch(e=>bubble(e.message));$('#buddy-question').focus();robot?.poke()}
+function close(){panel.hidden=true;preview?.setVisible(false);$('#buddy-toggle').setAttribute('aria-expanded','false');$('#buddy-toggle').focus()}
 function clearChat(message){epoch++;answer='';answerMailID=null;include.checked=false;log.replaceChildren();bubble(message);$('#use-buddy-draft').hidden=true;sharing()}
 $('#buddy-toggle').onclick=()=>{if($('#buddy-toggle').dataset.dragged)return;panel.hidden?open():close()};$('#buddy-close').onclick=close;
 $('#reader-buddy').onclick=()=>{$('#reader').close();open()};
@@ -36,9 +46,25 @@ panel.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();cl
 document.querySelectorAll('[data-ask]').forEach(b=>b.onclick=()=>{if(!window.mailForBuddy()){bubble('Open a message first. Then choose whether to include it.');return}if(!include.checked){bubble('Turn on “Include this email” to let me read the selected message.');include.focus();return}ask(b.dataset.ask)});
 $('#use-buddy-draft').onclick=()=>{if(answerMailID!==null&&window.mailForBuddy()?.id!==answerMailID){bubble('That answer belongs to another email. Open that conversation before using it.');return}close();window.useBuddyDraft(answer,answerMailID)};
 window.addEventListener('mail-session-complete',()=>{robot?.poke();bubble('A few small decisions, one lighter inbox. That is a good place to stop.\n— A little Buddy note (not AI-generated)')});
-for(const id of ['buddy-name','buddy-color','buddy-shape','buddy-hat'])$('#'+id).onchange=()=>{look={name:$('#buddy-name').value.trim().slice(0,20)||'Buddy',color:$('#buddy-color').value,shape:$('#buddy-shape').value,hat:$('#buddy-hat').value};try{localStorage.setItem('stupid-mail-buddy-look',JSON.stringify(look))}catch{}applyLook()};
+$('#buddy-name').onchange=e=>saveLook({name:e.target.value});
+for(const key of Object.keys(BuddyLook.choices))$('#buddy-'+key).onchange=e=>saveLook({[key]:e.target.value});
+for(const key of ['color','glow','outfit'])$('#buddy-'+key+'-custom').oninput=e=>saveLook({[key]:e.target.value});
+for(const key of ['backpack','scarf'])$('#buddy-'+key).onchange=e=>saveLook({[key]:e.target.checked});
+$('#buddy-reset').onclick=()=>saveLook(BuddyLook.defaults);
+$('#buddy-photo-remove').onclick=()=>saveLook({image:''});
+$('#buddy-photo').onchange=e=>{
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10*1024*1024){$('#buddy-look-status').textContent='Choose a PNG, JPEG, or WebP image under 10 MB.';return}
+ const reader=new FileReader();reader.onerror=()=>$('#buddy-look-status').textContent='Could not read this picture.';
+ reader.onload=()=>{const image=new Image();image.onerror=()=>$('#buddy-look-status').textContent='Could not open this picture.';image.onload=()=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=160;const size=Math.min(image.width,image.height);canvas.getContext('2d').drawImage(image,(image.width-size)/2,(image.height-size)/2,size,size,0,0,160,160);saveLook({image:canvas.toDataURL('image/jpeg',.85)})};image.src=reader.result};reader.readAsDataURL(file);
+};
+$('#buddy-customize').addEventListener('toggle',()=>{
+ const visible=$('#buddy-customize').open&&!panel.hidden;
+ if(visible&&!preview&&window.Buddy3D&&!matchMedia('(prefers-reduced-motion: reduce)').matches){preview=window.Buddy3D.create($('#buddy-preview'),{interactive:true});preview?.setLook(look)}
+ preview?.setVisible(visible);
+});
 window.mailBuddy={robot:()=>robot,open,close,prepareSelection(text){open();include.checked=false;$('#buddy-question').value='Explain this email excerpt in simple words:\n\n'+text.slice(0,1500);sharing();bubble('The highlighted text is ready below. Press Ask when you want to share it with your chosen AI.')}};
-function mount(){if(robot||!window.Buddy3D||matchMedia('(prefers-reduced-motion: reduce)').matches)return;robot=window.Buddy3D.create($('#buddy-character'),{interactive:false});if(robot){$('#buddy-character').classList.add('has-robot');applyLook();let frame=0;document.addEventListener('pointermove',e=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const r=$('#buddy-character').getBoundingClientRect();robot.lookAt((e.clientX-r.x-r.width/2)/innerWidth,-(e.clientY-r.y-r.height/2)/innerHeight)})},{passive:true})}}
-document.addEventListener('visibilitychange',()=>robot?.setVisible(!document.hidden));
+function mount(){if(robot||!window.Buddy3D||matchMedia('(prefers-reduced-motion: reduce)').matches)return;robot=window.Buddy3D.create($('#buddy-character'),{interactive:false});if(robot){$('#buddy-character').classList.add('has-robot');applyLook();robot.setState({sleepy:!settings.ready});let frame=0;document.addEventListener('pointermove',e=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const r=$('#buddy-character').getBoundingClientRect();robot.lookAt((e.clientX-r.x-r.width/2)/innerWidth,-(e.clientY-r.y-r.height/2)/innerHeight)})},{passive:true})}}
+document.addEventListener('visibilitychange',()=>{robot?.setVisible(!document.hidden);preview?.setVisible(!document.hidden&&!panel.hidden&&$('#buddy-customize').open)});
 window.addEventListener('buddy3d-ready',mount);mount();applyLook();
 })();
