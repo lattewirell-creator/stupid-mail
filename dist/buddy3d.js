@@ -294,6 +294,8 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     torso.visible = belly.visible = handL.visible = handR.visible = !hiker && !ball;
     outfitMat.color.set(hex(look.outfit, COLORS, 'clay'));
     bodyMat.color.set(hex(look.color, COLORS, 'clay'));
+    // The studio light (scene.environment) is made for the hiker; on a round ball or the Eye it washes out the colour and the white eyes.
+    scene.environmentIntensity = ball ? 0.3 : 1; bodyMat.clearcoat = ball ? 0.5 : 1;
     glowMat.color.set(hex(look.glow, GLOWS, 'cyan'));
     let dim = head.userData.dim;
     if (shapeChanged) { dim = buildShell(look.shape); head.userData.dim = dim; }
