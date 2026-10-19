@@ -1,6 +1,6 @@
 {
-  "version": "2.8",
-  "build": 10,
+  "version": "2.9",
+  "build": 11,
   "feed_url": "https://raw.githubusercontent.com/lattewirell-creator/stupid-mail/main/updates/appcast.xml",
   "public_key": "hjzH4UlhdL7xKzZAAPIvZDq0srXbl8sg57VDv/SQ48Q=",
   "keychain_account": "stupid-mail"
