@@ -66,6 +66,7 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
   const packMat = new THREE.MeshStandardMaterial({ color: 0x6b5a3e, roughness: 0.9 });
   const faceMat = new THREE.MeshBasicMaterial({ color: 0x2a221c });
   const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const eyeDotMat = new THREE.MeshPhysicalMaterial({ color: 0x3b3426, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.2 });
   const blushMat = new THREE.MeshBasicMaterial({ color: 0xff8a8a, transparent: true, opacity: 0.45, depthWrite: false });
   const pantsMat = new THREE.MeshStandardMaterial({ color: 0x3d3929, roughness: 0.85 });
   const bootMat = new THREE.MeshStandardMaterial({ color: 0x6b4630, roughness: 0.7 });
@@ -85,11 +86,11 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = -1.45; scene.add(shadow);
 
   let shell = null, parts = null, hatObj = null, glassesObj = null, face = null;
-  const look = { shape: 'hiker', hat: 'none', glasses: 'none', color: 'cream', glow: 'cyan', image: '', eyes: 'dot', mouth: 'smile', outfit: 'clay', backpack: true, scarf: true };
+  const look = { shape: 'ball', hat: 'none', glasses: 'none', color: 'clay', glow: 'cyan', image: '', eyes: 'dot', mouth: 'smile', outfit: 'clay', backpack: true, scarf: true };
 
   // Head shapes: each returns the head mesh and where its face is.
   function buildShell(shape) {
-    if (shell) { head.remove(shell); shell.geometry.dispose(); }
+    if (shell) { head.remove(shell); shell.traverse((o) => o.geometry && o.geometry.dispose()); }
     let geo, front = 0.95, w = 1, top = 0.92;
     if (shape === 'cube') { geo = new RoundedBoxGeometry(1.95, 1.65, 1.6, 6, 0.42); front = 0.8; top = 0.83; w = 0.97; }
     else if (shape === 'capsule') { geo = new THREE.CapsuleGeometry(0.72, 0.62, 12, 32); geo.rotateZ(Math.PI / 2); front = 0.72; top = 0.72; w = 1.05; }
@@ -99,6 +100,11 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
       geo = new THREE.SphereGeometry(0.95, 48, 32);
       shell = new THREE.Mesh(geo, bodyMat); head.add(shell);
       return { front: 0.95, w: 0.95, top: 0.95, eyeY: 0.1, kind: 'ball' };
+    }
+    else if (shape === 'eye') {   // The Stupid Company's eye logo: a ring in Buddy's colour, a pupil (see eyeFace) and a little dark dot
+      shell = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.15, 24, 72), bodyMat); head.add(shell);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), eyeDotMat); dot.position.set(0.57, 0.57, 0.06); shell.add(dot);
+      return { front: 0.15, w: 0.72, top: 0.87, eyeY: 0, kind: 'eye' };
     }
     else if (shape === 'hiker') {   // one chubby bean: head and body together
       geo = new THREE.CapsuleGeometry(0.8, 0.8, 16, 40); geo.scale(1, 1, 0.92);
@@ -146,6 +152,7 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     if (face) { head.remove(face.group); face.group.traverse((o) => o.geometry && o.geometry.dispose()); }
     if (dim.kind === 'hiker') return hikerFace(dim);
     if (dim.kind === 'ball') return ballFace(dim);
+    if (dim.kind === 'eye') return eyeFace();
     const g = new THREE.Group(); g.position.z = dim.front - 0.18;
     const visor = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), darkMat); visor.scale.set(0.74 * dim.w, 0.46, 0.3); g.add(visor);
     const photo = new THREE.Mesh(new THREE.CircleGeometry(0.42, 40), photoMat); photo.position.z = 0.31; photo.visible = false; g.add(photo);
@@ -169,6 +176,16 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     const photo = new THREE.Mesh(new THREE.CircleGeometry(0.42, 40), photoMat); photo.position.z = dim.front + 0.01; photo.visible = false; g.add(photo);
     head.add(g);
     face = { group: g, eyes, happy, mouth, photo, eyeBase: eyes.map((e) => e.position.clone()) };
+  }
+  // Eye face: the logo's pupil, which follows the mouse and blinks; a smiling arc when happy.
+  function eyeFace() {
+    const g = new THREE.Group();
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.25, 32, 20), bodyMat); pupil.scale.z = 0.6; pupil.position.z = 0.04; g.add(pupil);
+    const happy = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.07, 8, 20, Math.PI), bodyMat); happy.position.z = 0.04; happy.visible = false; g.add(happy);
+    const mouth = new THREE.Group(); g.add(mouth);   // keeps the talking animation happy
+    const photo = new THREE.Mesh(new THREE.CircleGeometry(0.55, 40), photoMat); photo.position.z = 0.2; photo.visible = false; g.add(photo);
+    head.add(g);
+    face = { group: g, eyes: [pupil], happy: [happy], mouth, photo, eyeBase: [pupil.position.clone()] };
   }
   // Hiker gear: jacket, sleeves with mitten hands, scarf and backpack (each optional).
   function hikerParts() {
@@ -216,7 +233,7 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
   function buildParts(dim, shape) {
     if (parts) { head.remove(parts); parts.traverse((o) => o.geometry && o.geometry.dispose()); }
     if (shape === 'hiker') return hikerParts();
-    if (shape === 'ball') { parts = new THREE.Group(); head.add(parts); return; }   // no antenna, ears or body
+    if (shape === 'ball' || shape === 'eye') { parts = new THREE.Group(); head.add(parts); return; }   // no antenna, ears or body
     parts = new THREE.Group();
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.38, 10), accentMat); stem.position.y = dim.top + 0.17; parts.add(stem);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 20, 14), glowMat); bulb.position.y = dim.top + 0.4; parts.add(bulb); parts.userData.bulb = bulb; parts.userData.stem = stem;
@@ -272,7 +289,7 @@ export function createBuddy(container, { interactive = true, onClick = null } = 
     const shapeChanged = !shell || next.shape !== look.shape;
     const faceChanged = next.shape === 'hiker' && ['eyes', 'mouth', 'backpack', 'scarf'].some((k) => next[k] !== look[k]);
     Object.assign(look, next);
-    const hiker = look.shape === 'hiker', ball = look.shape === 'ball';
+    const hiker = look.shape === 'hiker', ball = look.shape === 'ball' || look.shape === 'eye';
     head.position.y = hiker ? 0.22 : ball ? 0.05 : 0.55;
     torso.visible = belly.visible = handL.visible = handR.visible = !hiker && !ball;
     outfitMat.color.set(hex(look.outfit, COLORS, 'clay'));

@@ -5,7 +5,7 @@ const lookKey='stupid-mail-buddy-browser-look-v1';
 let look=BuddyLook.normalize(),preview=null;
 // Use the real browser default for migration; retain the old Mail key as a backup.
 try{look=BuddyLook.normalize(JSON.parse(localStorage.getItem(lookKey)||'{}'))}catch{}
-const titles={hiker:'Hiker',ball:'Ball',round:'Round',cube:'Cube',capsule:'Capsule',egg:'Egg',tv:'TV',tophat:'Top hat',lash:'Lashes',dot:'Dots'};
+const titles={hiker:'Hiker',ball:'Ball',eye:'Eye',round:'Round',cube:'Cube',capsule:'Capsule',egg:'Egg',tv:'TV',tophat:'Top hat',lash:'Lashes',dot:'Dots'};
 function applyLook(){
  $('#buddy-name').value=look.name;$('#buddy-panel-title').textContent=look.name;$('.buddy-caption').textContent=look.name;
  for(const [key,values]of Object.entries(BuddyLook.choices)){
