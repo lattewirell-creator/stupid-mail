@@ -8,7 +8,8 @@ sparkle=root/'.build/sparkle'
 run('python3',root/'scripts/bundle-buddy.py')
 run('node','--check',root/'dist/app.js');run('node','--check',root/'dist/buddy-ui.js');run('node','--check',root/'dist/buddy3d.bundle.js')
 release=root/('release-'+config['version']);release.mkdir(exist_ok=True)
-app=release/'The Stupid Mail.app';mac=app/'Contents/MacOS';resources=app/'Contents/Resources';mac.mkdir(parents=True,exist_ok=True);resources.mkdir(parents=True,exist_ok=True)
+app=release/'app.noindex'/'The Stupid Mail.app';   # ".noindex": Spotlight and Launchpad don't list build copies as extra apps
+mac=app/'Contents/MacOS';resources=app/'Contents/Resources';mac.mkdir(parents=True,exist_ok=True);resources.mkdir(parents=True,exist_ok=True)
 # One app for Apple chip and Intel Macs: build each, then join them.
 sources=[root/'macos'/x for x in ['App.swift','MailCore.swift','IMAPConnection.swift','NativeBridge.swift','BuddyAI.swift','MailCache.swift','OutlookMail.swift','AccountSetup.swift','Workspace.swift','WorkspaceCore.swift','CalendarCore.swift','CalendarBridge.swift']]
 slices=[]

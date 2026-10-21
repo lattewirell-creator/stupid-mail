@@ -24,4 +24,6 @@ if destination.exists():
     shutil.rmtree(destination)
 destination.mkdir()
 subprocess.run(['tar', '-xf', str(archive), '-C', str(destination)], check=True)
+# Sparkle's own demo app isn't needed, and Launchpad would list it as an app on this Mac.
+shutil.rmtree(destination / 'Sparkle Test App.app', ignore_errors=True)
 print('Verified Sparkle', version)

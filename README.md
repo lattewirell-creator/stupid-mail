@@ -67,7 +67,7 @@ python3 scripts/test.py
 python3 scripts/build-mac.py
 ```
 
-The build creates `release-2.5/The Stupid Mail.app` and its ZIP. Sources are in `macos/` and `dist/`.
+The build creates `release-<version>/app.noindex/The Stupid Mail.app` (".noindex" keeps Launchpad from listing it) and its ZIP. Sources are in `macos/` and `dist/`.
 
 Tests cover MIME/IMAP framing and injection resistance, provider migration, OAuth token parsing, safe Outlook message conversion, frontend draft handling, snooze/undo, and Buddy context isolation. An optional localhost SMTP transport fixture is available in `tests/smtp_transport.py`.
 

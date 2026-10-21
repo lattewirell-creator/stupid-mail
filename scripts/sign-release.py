@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 config = json.loads((root / 'updates/config.json').read_text())
 release = root / ('release-' + config['version'])
 archive = release / 'The Stupid Mail — Mac.zip'
-info = plistlib.loads((release / 'The Stupid Mail.app/Contents/Info.plist').read_bytes())
+info = plistlib.loads((release / 'app.noindex/The Stupid Mail.app/Contents/Info.plist').read_bytes())
 assert info['CFBundleShortVersionString'] == config['version']
 assert info['CFBundleVersion'] == str(config['build'])
 assert info['SUPublicEDKey'] == config['public_key']
