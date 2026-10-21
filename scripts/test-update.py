@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 root = Path(__file__).resolve().parents[1]
 config = json.loads((root/'updates/config.json').read_text())
 release = root/('release-'+config['version'])
-app = release/'The Stupid Mail.app'
+app = release/'app.noindex'/'The Stupid Mail.app'
 archive = release/'The Stupid Mail — Mac.zip'
 info = plistlib.loads((app/'Contents/Info.plist').read_bytes())
 feed = ET.parse(root/'updates/appcast.xml')
