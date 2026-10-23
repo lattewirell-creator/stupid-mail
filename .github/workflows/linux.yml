@@ -1,0 +1,39 @@
+# Builds and tests The Stupid Mail for Linux on Ubuntu 24.04 and makes the .deb (scripts/build-linux.sh).
+# When a GitHub release is published, the .deb is attached to it as StupidMail-<version>-linux-amd64.deb:
+# Stupid OS finds the Linux package in each release by that "-linux-amd64.deb" ending.
+name: Linux
+on:
+  push:
+    paths: ["windows/**", "dist/**", "linux/**", "scripts/build-linux.sh", ".github/workflows/linux.yml"]
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev libdbus-1-dev xvfb dbus-x11
+          rustup update stable && rustup default stable
+          cargo install cargo-deb --locked
+      - name: Test and package
+        run: scripts/build-linux.sh
+      - name: Start-up check
+        run: |
+          # The installed package starts (WebKitGTK in a virtual screen) and stays up, then is closed.
+          sudo apt-get install -y ./release-*/StupidMail-*-linux-amd64.deb
+          dbus-run-session -- xvfb-run -a sh -c 'stupid-mail & pid=$!; sleep 8; kill -0 $pid || { echo "The app exited early"; exit 1; }; kill $pid'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: release-*/StupidMail-*-linux-amd64.deb
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" release-*/StupidMail-*-linux-amd64.deb --clobber --repo "${{ github.repository }}"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=The Stupid Mail
+GenericName=Mail
+Comment=A calmer inbox with Quiet Inbox, Follow-up Radar and the AI Buddy
+Exec=stupid-mail %u
+Icon=stupid-mail
+Terminal=false
+Categories=Network;Email;Office;
+MimeType=x-scheme-handler/mailto;
+Keywords=mail;email;inbox;imap;gmail;outlook;icloud;
+StartupNotify=true
+StartupWMClass=stupid-mail
