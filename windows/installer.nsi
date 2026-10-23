@@ -45,10 +45,12 @@ Section "Install"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateShortcut "$SMPROGRAMS\The Stupid Mail.lnk" "$INSTDIR\The Stupid Mail.exe"
   !define UNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\TheStupidMail"
-  ; A desktop shortcut on the first install only: an update doesn't bring it back if you deleted it.
-  ReadRegStr $1 HKCU "${UNINST}" "DisplayName"
-  StrCmp $1 "" 0 +2
+  ; A desktop shortcut once: on the first install, or on the first update that knows about it (for installs from
+  ; before). After that an update never brings it back if you deleted it.
+  ReadRegStr $1 HKCU "${UNINST}" "DesktopShortcut"
+  StrCmp $1 "1" +3 0
     CreateShortcut "$DESKTOP\The Stupid Mail.lnk" "$INSTDIR\The Stupid Mail.exe"
+    WriteRegStr HKCU "${UNINST}" "DesktopShortcut" "1"
   WriteRegStr HKCU "${UNINST}" "DisplayName" "The Stupid Mail"
   WriteRegStr HKCU "${UNINST}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINST}" "Publisher" "lattewirell-creator"
