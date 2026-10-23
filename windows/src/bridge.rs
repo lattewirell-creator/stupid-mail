@@ -1,5 +1,5 @@
 // The interface's requests (port of macos/NativeBridge.swift, AccountSetup.swift, CalendarBridge.swift and
-// Workspace.swift): same actions, same checks, same wording, Windows dialogs instead of macOS sheets.
+// Workspace.swift): same actions, same checks, same wording, the app's own dialog windows instead of macOS sheets.
 use crate::dialog::{Field, Spec};
 use crate::mail::{self, validation, Credentials, Provider};
 use crate::{calendar, net, store, App};
@@ -13,8 +13,38 @@ fn records(list: Vec<mail::MailRecord>) -> Value { serde_json::to_value(list).un
 fn load_credentials() -> Option<Credentials> { store::load_secret("mail").and_then(|v| serde_json::from_value(v).ok()) }
 pub fn open_external(url: &str) {
     if !url.starts_with("https://") { return; }
-    #[cfg(windows)] { let _ = std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", url]).spawn(); }
-    #[cfg(not(windows))] { let _ = std::process::Command::new("open").arg(url).spawn(); }
+    let _ = open_with_system(std::ffi::OsStr::new(url));
+}
+/// Hands a web address or file to the system's default app for it.
+fn open_with_system(target: &std::ffi::OsStr) -> bool {
+    #[cfg(windows)] { std::process::Command::new("rundll32").arg("url.dll,FileProtocolHandler").arg(target).spawn().is_ok() }
+    #[cfg(target_os = "linux")] { std::process::Command::new("xdg-open").arg(target).spawn().is_ok() }
+    #[cfg(not(any(windows, target_os = "linux")))] { std::process::Command::new("open").arg(target).spawn().is_ok() }
+}
+
+/// A mailto: link (RFC 6068) as a draft for the interface's compose(): {email, subject, body}. Only the first valid
+/// address is used; anything else (cc, bcc, attachments) is left out. Not a mailto: link → None.
+pub fn mailto(url: &str) -> Option<Value> {
+    let rest = url.strip_prefix("mailto:").or_else(|| url.strip_prefix("MAILTO:"))?;
+    let decode = |t: &str| {
+        let (b, mut out, mut i) = (t.as_bytes(), Vec::new(), 0);
+        while i < b.len() {
+            let hex = |c: u8| (c as char).to_digit(16);
+            match (b[i], b.get(i + 1).and_then(|c| hex(*c)), b.get(i + 2).and_then(|c| hex(*c))) {
+                (b'%', Some(h), Some(l)) => { out.push((h * 16 + l) as u8); i += 3; }
+                (c, _, _) => { out.push(c); i += 1; }
+            }
+        }
+        String::from_utf8_lossy(&out).replace("\r\n", "\n")
+    };
+    let (to, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let (mut addresses, mut subject, mut body) = (decode(to), String::new(), String::new());
+    for pair in query.split('&') {
+        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+        match k.to_ascii_lowercase().as_str() { "to" => { addresses.push(','); addresses.push_str(&decode(v)); } "subject" => subject = decode(v), "body" => body = decode(v), _ => {} }
+    }
+    let email = addresses.split(',').map(str::trim).find(|a| validation::address(a)).unwrap_or("").to_string();
+    Some(json!({"email": email, "subject": subject.replace('\n', " ").chars().take(300).collect::<String>(), "body": body.chars().take(100_000).collect::<String>()}))
 }
 
 pub fn handle(app: &mut App, body: &str) {
@@ -52,8 +82,11 @@ pub fn handle(app: &mut App, body: &str) {
             }
             app.respond(&id, Ok(json!({"suggestions": out})));
         }
-        // No shared calendar store on Windows: events go to your calendar app as an .ics file.
-        "calendarConnect" | "calendarList" => app.respond(&id, Ok(json!({"calendars": [{"id": "ics", "title": "Your calendar app (Outlook, Windows Calendar…)"}], "events": []}))),
+        // No shared calendar store on Windows or Linux: events go to your calendar app as an .ics file.
+        "calendarConnect" | "calendarList" => {
+            let title = if cfg!(target_os = "linux") { "Your calendar app (GNOME Calendar, Thunderbird…)" } else { "Your calendar app (Outlook, Windows Calendar…)" };
+            app.respond(&id, Ok(json!({"calendars": [{"id": "ics", "title": title}], "events": []})))
+        }
         "calendarCreate" => calendar_create(app, id, r),
         "workspaceOpen" | "workspaceSettings" | "workspaceShare" => workspace(app, id, &action, r),
         "buddyStatus" => app.respond(&id, Ok(buddy_status())),
@@ -91,7 +124,7 @@ fn connect_password(app: &mut App, id: String, provider: Provider) {
     let mut buttons = vec!["Connect", "Cancel"];
     if provider.password_page().is_some() { buttons.push(if provider == Provider::Proton { "Get Proton Mail Bridge" } else { "Create app password" }); }
     let placeholder = match provider { Provider::Icloud => "you@icloud.com", Provider::Gmail => "you@gmail.com", _ => "you@example.com" };
-    let mut spec = Spec::new(&title, &format!("{} Your password is stored encrypted for your Windows account. Latest 40 inbox messages; local sorting and drafts.\n\n{note}", provider.help()), &buttons)
+    let mut spec = Spec::new(&title, &format!("{} Your password is {}. Latest 40 inbox messages; local sorting and drafts.\n\n{note}", provider.help(), store::SECRETS_NOTE), &buttons)
         .field(Field::text("email", placeholder, &store::setting("icloudEmail")))
         .field(Field::secret("password", if provider == Provider::Proton { "Bridge password" } else if custom { "Password or app password" } else { "App password" }));
     if custom {
@@ -211,7 +244,7 @@ fn buddy_settings(app: &mut App, id: String) {
     let current = buddy();
     let names = ["ollama", "openai", "anthropic"];
     let selected = current.as_ref().and_then(|c| names.iter().position(|n| *n == c.0)).unwrap_or(0);
-    let spec = Spec::new("Wake up Buddy", "Choose an AI and enter its model name. Cloud providers receive your questions, plus the selected email only when you enable ‘Include this email’. API usage may be billed by that provider. Ollama runs locally; use a locally installed model.\n\nKeys are saved encrypted for your Windows account. Existing browser keys are not imported.", &["Save", "Cancel"])
+    let spec = Spec::new("Wake up Buddy", &format!("Choose an AI and enter its model name. Cloud providers receive your questions, plus the selected email only when you enable ‘Include this email’. API usage may be billed by that provider. Ollama runs locally; use a locally installed model.\n\nKeys are {}. Existing browser keys are not imported.", store::SECRETS_NOTE), &["Save", "Cancel"])
         .field(Field::choice("provider", &["Ollama — local", "OpenAI", "Claude — Anthropic"], selected))
         .field(Field::text("model", "Exact model name from your provider", current.as_ref().map(|c| c.1.as_str()).unwrap_or("")))
         .field(Field::secret("key", "API key (not needed for Ollama)"));
@@ -247,8 +280,7 @@ fn calendar_create(app: &mut App, id: String, r: Value) {
         if button != 0 { app.respond(&id, Err("Cancelled.".into())); return; }
         let path = std::env::temp_dir().join(format!("stupid-mail-{}.ics", uuid::Uuid::new_v4()));
         if std::fs::write(&path, calendar::ics(&title, start, end)).is_err() { app.respond(&id, Err("Could not prepare the event file.".into())); return; }
-        #[cfg(windows)] let opened = std::process::Command::new("rundll32").arg("url.dll,FileProtocolHandler").arg(&path).spawn().is_ok();
-        #[cfg(not(windows))] let opened = std::process::Command::new("open").arg(&path).spawn().is_ok();
+        let opened = open_with_system(path.as_os_str());
         app.respond(&id, if opened { Ok(json!({"saved": true})) } else { Err("No calendar app opened the event. Check that a calendar app is installed.".into()) });
     });
 }
@@ -302,14 +334,14 @@ pub fn workspace_view(app: &mut App, provider: &str, url: &str, window: &tao::wi
     let external = muda::MenuItem::new("Open in browser if sign-in is unavailable here", true, None);
     let meeting = muda::MenuItem::new("Find meeting in selected chat text", true, None);
     let _ = menu.append_items(&[&muda::Submenu::with_items("&Workspace", true, &[&external, &meeting]).unwrap()]);
-    #[cfg(windows)] unsafe { use tao::platform::windows::WindowExtWindows; let _ = menu.init_for_hwnd(window.hwnd() as _); }
+    crate::attach_menu(&menu, window);
     app.workspace_menu.insert(external.id().clone(), (provider.to_string(), "external"));
     app.workspace_menu.insert(meeting.id().clone(), (provider.to_string(), "meeting"));
     app.workspace_menus.push(menu);
-    wry::WebViewBuilder::new().with_url(url)
+    let builder = wry::WebViewBuilder::new().with_url(url)
         .with_navigation_handler(|u| u.starts_with("https://") || u == "about:blank")
-        .with_new_window_req_handler(|u, _| { open_external(&u); wry::NewWindowResponse::Deny })
-        .build(window).expect("workspace view")
+        .with_new_window_req_handler(|u, _| { open_external(&u); wry::NewWindowResponse::Deny });
+    crate::attach(builder, window).expect("workspace view")
 }
 /// Workspace menu clicks.
 pub fn workspace_menu(app: &mut App, provider: &str, kind: &str) {

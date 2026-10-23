@@ -119,6 +119,30 @@ fn more_providers() {
     assert!(serde_json::to_string(&other).unwrap().contains("\"smtpImplicitTLS\":false"));
     assert_eq!(ALL.len(), 10);
 }
+#[test]
+fn mailto_links() {
+    use crate::bridge::mailto;
+    let d = mailto("mailto:sam%40example.com?subject=Lunch%20%26%20tea&body=Hi%2C%0D%0Asee%20you&cc=x@example.com").unwrap();
+    assert_eq!((d["email"].as_str().unwrap(), d["subject"].as_str().unwrap(), d["body"].as_str().unwrap()), ("sam@example.com", "Lunch & tea", "Hi,\nsee you"));
+    assert_eq!(mailto("mailto:?to=a@example.com,b@example.com").unwrap()["email"], "a@example.com");
+    assert_eq!(mailto("mailto:not-an-address?subject=Line%0Abreak").unwrap(), json!({"email": "", "subject": "Line break", "body": ""}));
+    assert!(mailto("https://example.com").is_none() && mailto("--flag").is_none());
+}
+#[cfg(target_os = "linux")]
+#[test]
+fn linux_storage_and_updates() {
+    let dir = std::env::temp_dir().join(format!("stupid-mail-xdg-{}", std::process::id()));
+    std::env::set_var("XDG_DATA_HOME", &dir);
+    let base = if std::env::var_os("STUPID_MAIL_DATA").is_some() { None } else { Some(crate::store::base()) };
+    if let Some(base) = base {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(base, dir.join("stupid-mail"));
+        assert_eq!(std::fs::metadata(&base).unwrap().permissions().mode() & 0o777, 0o700, "only this user can open the mail folder");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(update::MANAGED_BY_SYSTEM, "apt updates the Linux app, it never downloads installers");
+    assert!(crate::store::SECRETS_NOTE.contains("keyring"));
+}
 /// Live check (run on demand: cargo test -- --ignored): each preset's real IMAP server answers over TLS and
 /// rejects a made-up account, which proves host, port and encryption.
 #[test]

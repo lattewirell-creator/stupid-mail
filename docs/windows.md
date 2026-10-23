@@ -14,7 +14,7 @@ The Windows version shows the same interface as the Mac app (the files in `dist/
 - Uninstalling keeps your mail data and saved sign-ins for a reinstall. Delete `%APPDATA%\The Stupid Mail` to remove them.
 
 ## Build
-`cd windows && cargo test && cargo build --release` on Windows (Rust stable). `.github/workflows/windows.yml` builds, tests and packages the installer (NSIS) on GitHub's Windows machines on every push. The mail code and its tests also run on a Mac (`cargo test`), which is how most of it was developed.
+`cd windows && cargo test && cargo build --release` on Windows (Rust stable). `.github/workflows/windows.yml` builds, tests and packages the installer (NSIS) on GitHub's Windows machines on every push. The mail code and its tests also run on a Mac (`cargo test`), which is how most of it was developed. The same crate is the Linux version too (WebKitGTK, the desktop keyring for secrets, updates from the package manager); `scripts/build-linux.sh` packages it as a `.deb`.
 
 ## Publish a Windows update
 Download the `windows-installer` artifact from the workflow run, then on the publishing Mac sign it with the update key (`python3 scripts/sign-release.py` signs every `release-<version>/*-windows-setup.exe` it finds and writes the `.sig` next to it). Upload both the installer and its `.sig` to the GitHub release.

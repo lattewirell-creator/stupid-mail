@@ -2,6 +2,8 @@
 name = "stupid-mail"
 version = "2.11.0"
 edition = "2021"
+description = "A calmer mail app with Quiet Inbox, Follow-up Radar and an AI Buddy"
+homepage = "https://stupidmail.vercel.app"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,6 +27,34 @@ wry = "0.57.0"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+# Linux: secrets go to the desktop's Secret Service (GNOME Keyring, KWallet), never to plain files.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6.3", features = ["sync-secret-service", "crypto-openssl"] }
+
+# Linux package (cargo-deb), built by scripts/build-linux.sh. Paths are relative to this folder.
+[package.metadata.deb]
+name = "stupid-mail"
+maintainer = "Lattewirell <lattewirell@gmail.com>"
+copyright = "lattewirell-creator"
+section = "mail"
+priority = "optional"
+depends = "$auto, xdg-utils"
+recommends = "gnome-keyring"
+extended-description = """\
+A cream-and-terracotta mail app with Quiet Inbox, Follow-up Radar and the animated AI Buddy. \
+Connects to iCloud, Gmail, Outlook, Yahoo, Fastmail and other IMAP/SMTP services. \
+Passwords are kept in the desktop's Secret Service keyring (GNOME Keyring)."""
+assets = [
+    ["target/release/stupid-mail", "usr/bin/", "755"],
+    ["../linux/stupid-mail.desktop", "usr/share/applications/", "644"],
+    ["../macos/AppIcon.iconset/icon_16x16.png", "usr/share/icons/hicolor/16x16/apps/stupid-mail.png", "644"],
+    ["../macos/AppIcon.iconset/icon_32x32.png", "usr/share/icons/hicolor/32x32/apps/stupid-mail.png", "644"],
+    ["../macos/AppIcon.iconset/icon_32x32@2x.png", "usr/share/icons/hicolor/64x64/apps/stupid-mail.png", "644"],
+    ["../macos/AppIcon.iconset/icon_128x128.png", "usr/share/icons/hicolor/128x128/apps/stupid-mail.png", "644"],
+    ["../macos/AppIcon.iconset/icon_256x256.png", "usr/share/icons/hicolor/256x256/apps/stupid-mail.png", "644"],
+    ["../macos/AppIcon.iconset/icon_512x512.png", "usr/share/icons/hicolor/512x512/apps/stupid-mail.png", "644"],
+]
 
 [profile.release]
 opt-level = "s"

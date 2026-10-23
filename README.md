@@ -1,14 +1,16 @@
 # The Stupid Mail 2.7
 
-A cream-and-terracotta mail app for Mac, Windows and Android with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
+A cream-and-terracotta mail app for Mac, Windows, Linux and Android with Quiet Inbox, Follow-up Radar, and the animated AI Buddy from The Stupid Browser.
 
-[Website](https://stupidmail.vercel.app) · [Download for Mac, Windows or Android](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
+[Website](https://stupidmail.vercel.app) · [Download for Mac, Windows, Linux or Android](https://github.com/lattewirell-creator/stupid-mail/releases/latest) · [Account setup](docs/accounts.md)
 
 ## Open
 
 **Mac:** unzip the download, quit any older version, and drag The Stupid Mail.app into Applications. One app for Apple chip and Intel Macs, macOS 13 or later. This is an ad-hoc-signed build, not a notarized App Store release.
 
 **Windows:** run `StupidMail-<version>-windows-setup.exe`. Windows 10 or 11; it installs for your user only (no administrator prompt) and uses Windows' built-in Edge WebView2. Windows SmartScreen may warn because the installer isn't code-signed: choose **More info → Run anyway**. See [Windows notes](docs/windows.md).
+
+**Linux:** install `StupidMail-<version>-linux-amd64.deb` with `sudo apt install ./StupidMail-<version>-linux-amd64.deb` (or open it in your software app). Ubuntu 24.04 or similar, 64-bit Intel/AMD; it uses the system's WebKitGTK web engine. Passwords, tokens and AI keys go to your desktop's keyring (GNOME Keyring, through the Secret Service); if no keyring is running or it stays locked, the app says so and saves nothing, rather than writing them to a file. Mail data is in `~/.local/share/stupid-mail`. The app registers as a handler for `mailto:` links (pick it as your default mail app in Settings). Updates come from your package manager like any other app, so the in-app updater stays off; **Help → Check for Updates…** tells you so. Calendar events open in your calendar app as an `.ics` file.
 
 **Android:** download `StupidMail-<version>-android.apk` on your phone and open it. Android 8 or later. Your phone asks once to allow installs from your browser; Play Protect may ask you to confirm because the app isn't from the Play Store. Passwords and keys are encrypted with a key in the phone's secure hardware, and nothing is included in phone backups. Proton Mail isn't offered on Android because Proton Mail Bridge only runs on computers. Calendar events open in your phone's calendar app for you to save. The app checks GitHub once a day and tells you when a newer APK is out.
 
@@ -67,7 +69,9 @@ python3 scripts/test.py
 python3 scripts/build-mac.py
 ```
 
-The build creates `release-<version>/app.noindex/The Stupid Mail.app` (".noindex" keeps Launchpad from listing it) and its ZIP. Sources are in `macos/` and `dist/`.
+For Linux, on Ubuntu 24.04 with Rust, `cargo install cargo-deb` and `libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev libdbus-1-dev`, run `scripts/build-linux.sh`. It tests the Rust side (`windows/`, shared with Windows) and writes `release-<version>/StupidMail-<version>-linux-amd64.deb`. `.github/workflows/linux.yml` does the same on GitHub and attaches the package to each published release.
+
+The Mac build creates `release-<version>/app.noindex/The Stupid Mail.app` (".noindex" keeps Launchpad from listing it) and its ZIP. Sources are in `macos/` and `dist/`.
 
 Tests cover MIME/IMAP framing and injection resistance, provider migration, OAuth token parsing, safe Outlook message conversion, frontend draft handling, snooze/undo, and Buddy context isolation. An optional localhost SMTP transport fixture is available in `tests/smtp_transport.py`.
 

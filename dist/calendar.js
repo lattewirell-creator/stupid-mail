@@ -2,7 +2,7 @@
  const dialog=$('#calendar-dialog');let suggestions=[],saving=false;
  function open(){if(document.querySelector('dialog[open]')){toast('Close the current window first.');return}dialog.showModal()}
  $('#open-calendar').onclick=open;
- $('#calendar-timezone').textContent='Times use this Mac’s time zone: '+Intl.DateTimeFormat().resolvedOptions().timeZone+'. No invitation or email text is included.';
+ $('#calendar-timezone').textContent='Times use '+(globalThis.thisDevice||'this Mac')+'’s time zone: '+Intl.DateTimeFormat().resolvedOptions().timeZone+'. No invitation or email text is included.';
  function localDate(text){const d=new Date(text);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
  async function refresh(action='calendarList'){try{const result=await bridge(action);window.dispatchEvent(new CustomEvent('calendar-updated',{detail:result.events}));$('#calendar-destination').innerHTML='<option value="">Choose a calendar</option>'+result.calendars.map(c=>`<option value="${escape(c.id)}">${escape(c.title)}</option>`).join('');$('#calendar-events').innerHTML=result.events.length?result.events.map(e=>`<div class="calendar-event"><strong>${escape(e.title)}</strong><span>${escape(new Date(e.start).toLocaleString())}${e.allDay?' · All day':''} · ${escape(e.calendar)}</span></div>`).join(''):'Nothing scheduled in the next 30 days.'}catch(e){toast(e.message)}}
  $('#calendar-connect').onclick=()=>refresh('calendarConnect');$('#calendar-refresh').onclick=()=>refresh();

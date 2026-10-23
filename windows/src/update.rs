@@ -1,6 +1,7 @@
 // Updates for the Windows version: checks GitHub Releases at start and from Help → Check for Updates…, downloads
 // StupidMail-<version>-windows-setup.exe and runs it only if its Ed25519 signature (the .sig next to it, made with
 // the same key as the Mac app's Sparkle updates) checks out against the public key built into this program.
+// On Linux the app comes from a .deb and the system's package manager updates it, so nothing is downloaded here.
 use crate::dialog::Spec;
 use crate::{store, App, VERSION};
 use base64::Engine;
@@ -46,8 +47,15 @@ fn download(url: &str, limit: u64) -> Option<Vec<u8>> {
     Some(data)
 }
 
+/// Linux: installed and updated by the system (apt, Software Updates), never by the app itself.
+pub const MANAGED_BY_SYSTEM: bool = cfg!(target_os = "linux");
+
 /// manual: from the menu (says so when there's nothing new). Automatic checks run once a day at start.
-pub fn check(app: &App, manual: bool) {
+pub fn check(app: &mut App, manual: bool) {
+    if MANAGED_BY_SYSTEM {
+        if manual { app.notice(&format!("The Stupid Mail {VERSION}\n\nUpdates for this app come from your system: install them with Software Updates (or your package manager) like your other apps.")); }
+        return;
+    }
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     if !manual && (store::setting("lastUpdateCheck") == today || !cfg!(windows)) { return; }
     store::set_setting("lastUpdateCheck", Some(&today));

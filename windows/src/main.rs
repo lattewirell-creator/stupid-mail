@@ -1,7 +1,7 @@
-// The Stupid Mail for Windows: the same interface as the Mac app (dist/, built into this program) in Windows'
-// own web engine (WebView2), with the Mac app's native side ported to Rust: mail (mail.rs), Outlook / Buddy /
-// workspaces (net.rs), local storage and secrets (store.rs), calendar (calendar.rs), dialogs (dialog.rs),
-// the bridge actions (bridge.rs) and updates (update.rs).
+// The Stupid Mail for Windows and Linux: the same interface as the Mac app (dist/, built into this program) in the
+// system's web engine (WebView2 on Windows, WebKitGTK on Linux), with the Mac app's native side ported to Rust: mail
+// (mail.rs), Outlook / Buddy / workspaces (net.rs), local storage and secrets (store.rs), calendar (calendar.rs),
+// dialogs (dialog.rs), the bridge actions (bridge.rs) and updates (update.rs).
 #![cfg_attr(windows, windows_subsystem = "windows")]
 mod bridge;
 mod calendar;
@@ -104,6 +104,17 @@ fn mime(path: &str) -> &'static str {
 /// The interface's address: wry serves custom protocols as http://mail.localhost on Windows, mail://localhost elsewhere.
 pub fn origin() -> &'static str { if cfg!(windows) { "http://mail.localhost" } else { "mail://localhost" } }
 
+/// Puts a web view into a window. Linux: into the window's GTK box, under its menu bar (works on Wayland and X11).
+pub fn attach(builder: WebViewBuilder, window: &Window) -> wry::Result<WebView> {
+    #[cfg(target_os = "linux")] { use tao::platform::unix::WindowExtUnix; use wry::WebViewBuilderExtUnix; builder.build_gtk(window.default_vbox().expect("window box")) }
+    #[cfg(not(target_os = "linux"))] { builder.build(window) }
+}
+/// Shows a menu bar in a window (Windows and Linux; the Mac has one menu bar for the app).
+pub fn attach_menu(menu: &muda::Menu, window: &Window) {
+    #[cfg(windows)] unsafe { use tao::platform::windows::WindowExtWindows; let _ = menu.init_for_hwnd(window.hwnd() as _); }
+    #[cfg(target_os = "linux")] { use tao::platform::unix::WindowExtUnix; let _ = menu.init_for_gtk_window(window.gtk_window(), window.default_vbox()); }
+    #[cfg(not(any(windows, target_os = "linux")))] let _ = (menu, window);
+}
 /// The keyboard shortcuts the Mac menu bar gives, for Windows where there's no menu bar: Ctrl+N new message, Ctrl+,
 /// connect an account, Ctrl+F search.
 const SHORTCUTS: &str = "addEventListener('keydown',(e)=>{if(!e.ctrlKey||e.altKey||e.shiftKey)return;const k=e.key.toLowerCase(),open=document.querySelector('dialog[open]'),el=(id)=>document.getElementById(id);\
@@ -121,9 +132,12 @@ fn main() {
     let item = |label: &str, accel: Option<&str>, name: &'static str, ids: &mut HashMap<muda::MenuId, &'static str>| {
         let i = muda::MenuItem::new(label, true, accel.and_then(|a| a.parse().ok())); ids.insert(i.id().clone(), name); i
     };
+    // GTK has no built-in Quit item, so Linux gets its own (it asks to close the window, which saves the draft first).
+    #[cfg(target_os = "linux")] let quit = item("Quit", Some("CmdOrCtrl+Q"), "quit", &mut menu_ids);
+    #[cfg(not(target_os = "linux"))] let quit = muda::PredefinedMenuItem::quit(Some("Exit"));
     let file = muda::Submenu::with_items("&File", true, &[
         &item("Connect Mail Account…", Some("CmdOrCtrl+,"), "connect", &mut menu_ids), &item("New Message", Some("CmdOrCtrl+N"), "compose", &mut menu_ids),
-        &muda::PredefinedMenuItem::separator(), &muda::PredefinedMenuItem::quit(Some("Exit")),
+        &muda::PredefinedMenuItem::separator(), &quit,
     ]).unwrap();
     let edit = muda::Submenu::with_items("&Edit", true, &[
         &muda::PredefinedMenuItem::undo(None), &muda::PredefinedMenuItem::redo(None), &muda::PredefinedMenuItem::separator(),
@@ -135,10 +149,15 @@ fn main() {
     ]).unwrap();
     menu.append_items(&[&file, &edit, &help]).unwrap();
     // Windows: no menu bar under the title (the app has its own buttons for all of it); its shortcuts are handled in the
-    // page instead (see SHORTCUTS). Updates are checked by themselves once a day.
+    // page instead (see SHORTCUTS). Updates are checked by themselves once a day. Linux keeps the menu bar.
+    #[cfg(not(windows))] attach_menu(&menu, &window);
     #[cfg(target_os = "macos")] menu.init_for_nsapp();
     { let p = proxy.clone(); muda::MenuEvent::set_event_handler(Some(move |e: muda::MenuEvent| { let _ = p.send_event(Ev::Menu(e.id)); })); }
 
+    // Opened as a mailto: handler (Linux registers it in the .desktop file): start a message to that address once
+    // the interface is ready and not syncing, through its usual compose window.
+    let mailto = std::env::args().skip(1).find_map(|a| bridge::mailto(&a)).map(|draft| format!(
+        "addEventListener('load',()=>{{let n=0,calm=0;const t=setInterval(()=>{{try{{n++;calm=(ready&&!syncing&&!document.querySelector('dialog[open]'))?calm+1:0;if(calm>=3){{compose({draft});if(document.getElementById('composer').open)clearInterval(t)}}}}catch(e){{clearInterval(t)}}if(n>600)clearInterval(t)}},100)}});")).unwrap_or_default();
     let ipc_proxy = proxy.clone();
     let view = WebViewBuilder::new()
         .with_custom_protocol("mail".into(), |_id, request| {
@@ -151,8 +170,9 @@ fn main() {
             }
         })
         // The interface talks to the app exactly as on the Mac (window.webkit.messageHandlers.mail).
-        .with_initialization_script(SHORTCUTS)
-        .with_initialization_script("(()=>{const real=window.webkit&&window.webkit.messageHandlers;const h={mail:{postMessage:(m)=>window.ipc.postMessage(JSON.stringify(m))}};if(real&&real.ipc)h.ipc=real.ipc;window.webkit={messageHandlers:h}})();document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s)});")
+        .with_initialization_script(if cfg!(windows) { SHORTCUTS } else { "" })
+        // stupidMailPlatform lets the interface say "this PC" / "this computer" where the Mac app says "this Mac".
+        .with_initialization_script(format!("window.stupidMailPlatform='{}';", if cfg!(windows) { "windows" } else if cfg!(target_os = "linux") { "linux" } else { "other" }) + "(()=>{const real=window.webkit&&window.webkit.messageHandlers;const h={mail:{postMessage:(m)=>window.ipc.postMessage(JSON.stringify(m))}};if(real&&real.ipc)h.ipc=real.ipc;window.webkit={messageHandlers:h}})();document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s)});" + &mailto)
         .with_ipc_handler(move |req| {
             if std::env::var("STUPID_MAIL_DEBUG").is_ok() { eprintln!("[ipc] {} {}", req.uri(), req.body()); }
             // Only the app's own page may call it (the Mac app checks the frame's URL the same way).
@@ -160,13 +180,13 @@ fn main() {
         })
         .with_navigation_handler(|url| url.starts_with(origin()) || url == "about:blank")
         .with_new_window_req_handler(|_, _| wry::NewWindowResponse::Deny)
-        .with_url(format!("{}/index.html", origin()))
-        .build(&window).expect("webview");
+        .with_url(format!("{}/index.html", origin()));
+    let view = attach(view, &window).expect("webview");
 
     let mut app = App { proxy: proxy.clone(), window, view, dialogs: HashMap::new(), next_dialog: 0, queue: vec![], workspaces: HashMap::new(),
         mail_busy: Arc::new(AtomicBool::new(false)), buddy_busy: Arc::new(AtomicBool::new(false)), menu_ids,
         workspace_menu: HashMap::new(), workspace_menus: vec![], exit: false };
-    update::check(&app, false);
+    update::check(&mut app, false);
     // Development self-test: STUPID_MAIL_TEST_JS=<file> runs in the interface after it loads; it can report
     // with window.webkit.messageHandlers.mail.postMessage({action:'__log', id:'t', text}).
     if let Ok(file) = std::env::var("STUPID_MAIL_TEST_JS") {
@@ -186,7 +206,8 @@ fn main() {
                 Some("connect") => app.js("document.getElementById('connect-account').click()"),
                 Some("compose") => app.js("if(!document.querySelector('dialog[open]'))document.getElementById('compose').click()"),
                 Some("search") => app.js("if(!document.querySelector('dialog[open]'))document.getElementById('search').focus()"),
-                Some("update") => update::check(&app, true),
+                Some("update") => update::check(&mut app, true),
+                Some("quit") => { let main = app.window.id(); close_requested(&mut app, main) }
                 Some("about") => app.notice(&format!("The Stupid Mail {VERSION}\n\nQuiet Inbox • Follow-up Radar • AI Buddy\n\niCloud, Gmail, and Outlook inbox and sending. Sorting, follow-up reminders, and drafts stay on this computer. Latest 40 inbox messages. Attachments are not supported yet.")),
                 _ => if let Some((p, k)) = app.workspace_menu.get(&id).cloned() { bridge::workspace_menu(&mut app, &p, k); },
             },
@@ -231,8 +252,8 @@ fn open_window(app: &mut App, target: &EventLoopWindowTarget<Ev>, open: Open) {
                     let _ = p.send_event(Ev::Dialog(id, reply["button"].as_i64().unwrap_or(-1), values));
                 })
                 .with_navigation_handler(|url| url.starts_with("about:") || url.starts_with("data:"))
-                .with_new_window_req_handler(|_, _| wry::NewWindowResponse::Deny)
-                .build(&w).expect("dialog view");
+                .with_new_window_req_handler(|_, _| wry::NewWindowResponse::Deny);
+            let v = attach(v, &w).expect("dialog view");
             slot.win = Some((w, v));
         }
         Open::Workspace(provider) => {

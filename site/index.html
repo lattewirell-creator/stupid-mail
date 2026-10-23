@@ -223,10 +223,10 @@ h1, h2, h3 { font-family: var(--display); font-weight: 750; letter-spacing: -.02
 .dl::before { top: 0; } .dl::after { bottom: 0; }
 .dl h2 { font-size: clamp(44px, 6vw, 84px); line-height: .92; letter-spacing: -.04em; }
 .dl .sub { font-size: 20px; margin: 16px 0 44px; max-width: 34em; color: #33321F; }
-.labels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; max-width: 1180px; }
+.labels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 940px; }
 @media (max-width: 980px) { .labels { grid-template-columns: minmax(0, 1fr); max-width: 560px; } }
 .label { position: relative; background: #FFFDF8; color: #33321F; border-radius: 16px; padding: 24px 26px 26px; display: flex; flex-direction: column; box-shadow: 0 18px 30px -18px rgba(60,20,5,.5); }
-.label:nth-child(1) { rotate: -1deg; } .label:nth-child(2) { rotate: 1deg; } .label:nth-child(3) { rotate: -.6deg; }
+.label:nth-child(1) { rotate: -1deg; } .label:nth-child(2) { rotate: 1deg; } .label:nth-child(3) { rotate: -.6deg; } .label:nth-child(4) { rotate: .8deg; }
 .label .addr { font: 600 13px var(--display); letter-spacing: .12em; text-transform: uppercase; color: #5C5A45; border-bottom: 2px dashed #E6DDCB; padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; gap: 10px; }
 .label h3 { font-size: 34px; }
 .label .for { color: #5C5A45; font-size: 16.5px; margin: 2px 0 18px; padding-right: 100px; }
@@ -235,6 +235,8 @@ h1, h2, h3 { font-family: var(--display); font-weight: 750; letter-spacing: -.02
 .label .go span { font-weight: 400; font-size: 14px; opacity: .8; }
 .label .go.waiting { background: none; color: #33321F; border: 2px dashed #E6DDCB; }
 .label .note { margin: 14px 0 0; font-size: 15.5px; color: #5C5A45; line-height: 1.5; }
+.label .note a { color: #33321F; text-underline-offset: 3px; }
+.label .note code { font-size: 13.5px; background: #F4EEE2; padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
 .label .postmark { position: absolute; right: 18px; top: 46px; border-color: #5C5A45; color: #5C5A45; width: 84px; height: 84px; font-size: 10px; }
 .label .rubber { top: 52px; right: 22px; font-size: 18px; mix-blend-mode: normal; }
 .ver { margin-top: 30px; font-size: 16px; color: #33321F; }
@@ -510,6 +512,14 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
           <a class="go waiting" data-plat="android" href="https://github.com/lattewirell-creator/stupid-mail/releases/latest">Not posted yet <span>See releases</span></a>
           <p class="note" id="droidNote">The Android version is on its way. When it arrives, the download appears right here.</p>
         </div>
+        <div class="label" id="linux">
+          <div class="addr"><span>From: GitHub</span><span>To: your Linux PC</span></div>
+          <span class="rubber" id="linuxSoon">Coming soon</span>
+          <h3>Linux</h3>
+          <p class="for">Ubuntu 24.04, Debian 13 and friends · 64-bit</p>
+          <a class="go waiting" data-plat="linux" href="https://github.com/lattewirell-creator/stupid-mail/releases/latest">Not posted yet <span>See releases</span></a>
+          <p class="note" id="linuxNote">The Linux version is on its way. Using <a href="https://github.com/lattewirell-creator/smartos">Stupid OS</a>? Then it’s already in your dock.</p>
+        </div>
       </div>
       <p class="ver" id="ver">All versions and what’s new are on <a href="https://github.com/lattewirell-creator/stupid-mail/releases">GitHub</a>.</p>
     </div>
@@ -543,6 +553,10 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
         <details>
           <summary><span><small>Dear Stupid Mail,</small>Can I bring two addresses?</span></summary>
           <p>Not at the same time yet. Connecting another replaces the saved sign-in. Drafts, reminders and sorting are kept per address for when you switch back.</p>
+        </details>
+        <details>
+          <summary><span><small>Dear Stupid Mail,</small>Do you do Linux?</span></summary>
+          <p>Happily. Ubuntu 24.04, Debian 13 and similar get a <code>.deb</code> from the download section: open it and click Install. Passwords live in GNOME Keyring, and updates come through your normal software updates. On <a href="https://github.com/lattewirell-creator/smartos">Stupid OS</a> it’s already installed.</p>
         </details>
       </div>
     </div>
@@ -652,7 +666,7 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
   const fmtSize = (b) => (b >= 1048576 ? Math.round(b / 1048576) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
   fetch('https://api.github.com/repos/lattewirell-creator/stupid-mail/releases/latest').then((r) => (r.ok ? r.json() : Promise.reject())).then((rel) => {
     const assets = rel.assets || [], find = (end) => assets.find((x) => x.name.endsWith(end));
-    const macNew = find('-mac.zip'), mac = macNew || find('The.Stupid.Mail.Mac.zip'), win = find('-windows-setup.exe'), droid = find('-android.apk');
+    const macNew = find('-mac.zip'), mac = macNew || find('The.Stupid.Mail.Mac.zip'), win = find('-windows-setup.exe'), droid = find('-android.apk'), lin = find('-linux-amd64.deb');
     if (mac) {
       document.querySelectorAll('[data-plat="mac"]').forEach((a) => { a.href = mac.browser_download_url; });
       if (mac.size) document.getElementById('macSize').textContent = fmtSize(mac.size);
@@ -673,6 +687,15 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
       document.getElementById('droidNote').textContent = 'Open the file on your phone. Android asks once to allow installs from your browser; your accounts and drafts stay when you update.';
       document.getElementById('heroSmall').textContent = isAndroid ? 'Also on your Android phone. Tap Download.' : 'For Mac, Windows and Android.';
       if (isAndroid) document.getElementById('heroGet').href = droid.browser_download_url;
+    }
+    if (lin) {
+      const a = document.querySelector('[data-plat="linux"]');
+      a.href = lin.browser_download_url; a.classList.remove('waiting');
+      a.textContent = 'Download .deb '; const s = document.createElement('span'); s.textContent = lin.size ? fmtSize(lin.size) : '.deb'; a.append(s);
+      document.getElementById('linuxSoon').remove();
+      const note = document.getElementById('linuxNote');
+      note.replaceChildren('Open the file and click Install, or run ', Object.assign(document.createElement('code'), { textContent: 'sudo apt install ./' + lin.name }), '. On Stupid OS it’s already in your dock and updates itself.');
+      if (!(droid && isAndroid)) document.getElementById('heroSmall').textContent = 'For ' + ['Mac', win && 'Windows', lin && 'Linux', droid && 'Android'].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.';
     }
     const v = String(rel.tag_name || '').replace(/^v/, '');
     if (v) {
