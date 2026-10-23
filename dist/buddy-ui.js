@@ -15,7 +15,7 @@ function applyLook(){
  $('#buddy-backpack').checked=look.backpack;$('#buddy-scarf').checked=look.scarf;$('#buddy-photo-remove').hidden=!look.image;
  robot?.setLook(look);preview?.setLook(look);
 }
-function saveLook(patch){look=BuddyLook.normalize({...look,...patch});applyLook();try{localStorage.setItem(lookKey,JSON.stringify(look));$('#buddy-look-status').textContent='Saved on this Mac.'}catch{$('#buddy-look-status').textContent='Could not save Buddy’s look. Free some space and try again.'}}
+function saveLook(patch){look=BuddyLook.normalize({...look,...patch});applyLook();try{localStorage.setItem(lookKey,JSON.stringify(look));$('#buddy-look-status').textContent='Saved on '+(globalThis.thisDevice||'this Mac')+'.'}catch{$('#buddy-look-status').textContent='Could not save Buddy’s look. Free some space and try again.'}}
 function bubble(text,who='buddy'){const p=document.createElement('p');p.className=who==='user'?'buddy-question':'buddy-answer';p.textContent=text;log.append(p);log.scrollTop=log.scrollHeight}
 function sharing(){const m=window.mailForBuddy();const cloud=settings.provider&&settings.provider!=='ollama';$('#buddy-sharing').textContent=include.checked&&m?`${cloud?'Shares':'Uses locally'} “${m.subject.slice(0,55)}” with ${settings.provider||'your chosen AI'} when you ask.`:'No email is included. Buddy receives only your question.'}
 function setStatus(s){settings=s;robot?.setState({sleepy:!s.ready});$('#buddy-provider').textContent=busy?'Thinking…':s.ready?`${s.provider==='ollama'?'Ollama · local':s.provider==='openai'?'OpenAI':'Claude'} · ${s.model}`:'Choose an AI in settings to wake Buddy up.';sharing()}

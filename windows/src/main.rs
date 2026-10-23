@@ -164,7 +164,8 @@ fn main() {
             }
         })
         // The interface talks to the app exactly as on the Mac (window.webkit.messageHandlers.mail).
-        .with_initialization_script("(()=>{const real=window.webkit&&window.webkit.messageHandlers;const h={mail:{postMessage:(m)=>window.ipc.postMessage(JSON.stringify(m))}};if(real&&real.ipc)h.ipc=real.ipc;window.webkit={messageHandlers:h}})();document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s)});".to_string() + &mailto)
+        // stupidMailPlatform lets the interface say "this PC" / "this computer" where the Mac app says "this Mac".
+        .with_initialization_script(format!("window.stupidMailPlatform='{}';", if cfg!(windows) { "windows" } else if cfg!(target_os = "linux") { "linux" } else { "other" }) + "(()=>{const real=window.webkit&&window.webkit.messageHandlers;const h={mail:{postMessage:(m)=>window.ipc.postMessage(JSON.stringify(m))}};if(real&&real.ipc)h.ipc=real.ipc;window.webkit={messageHandlers:h}})();document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s)});" + &mailto)
         .with_ipc_handler(move |req| {
             if std::env::var("STUPID_MAIL_DEBUG").is_ok() { eprintln!("[ipc] {} {}", req.uri(), req.body()); }
             // Only the app's own page may call it (the Mac app checks the frame's URL the same way).
