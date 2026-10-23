@@ -104,6 +104,11 @@ fn mime(path: &str) -> &'static str {
 /// The interface's address: wry serves custom protocols as http://mail.localhost on Windows, mail://localhost elsewhere.
 pub fn origin() -> &'static str { if cfg!(windows) { "http://mail.localhost" } else { "mail://localhost" } }
 
+/// The keyboard shortcuts the Mac menu bar gives, for Windows where there's no menu bar: Ctrl+N new message, Ctrl+,
+/// connect an account, Ctrl+F search.
+const SHORTCUTS: &str = "addEventListener('keydown',(e)=>{if(!e.ctrlKey||e.altKey||e.shiftKey)return;const k=e.key.toLowerCase(),open=document.querySelector('dialog[open]'),el=(id)=>document.getElementById(id);\
+if(k==='n'&&!open&&el('compose')){e.preventDefault();el('compose').click()}else if(k===','&&el('connect-account')){e.preventDefault();el('connect-account').click()}else if(k==='f'&&!open&&el('search')){e.preventDefault();el('search').focus()}});";
+
 fn main() {
     let event_loop = EventLoopBuilder::<Ev>::with_user_event().build();
     let proxy = event_loop.create_proxy();
@@ -129,7 +134,8 @@ fn main() {
         &item("Check for Updates…", None, "update", &mut menu_ids), &item("About The Stupid Mail", None, "about", &mut menu_ids),
     ]).unwrap();
     menu.append_items(&[&file, &edit, &help]).unwrap();
-    #[cfg(windows)] unsafe { use tao::platform::windows::WindowExtWindows; let _ = menu.init_for_hwnd(window.hwnd() as _); }
+    // Windows: no menu bar under the title (the app has its own buttons for all of it); its shortcuts are handled in the
+    // page instead (see SHORTCUTS). Updates are checked by themselves once a day.
     #[cfg(target_os = "macos")] menu.init_for_nsapp();
     { let p = proxy.clone(); muda::MenuEvent::set_event_handler(Some(move |e: muda::MenuEvent| { let _ = p.send_event(Ev::Menu(e.id)); })); }
 
@@ -145,6 +151,7 @@ fn main() {
             }
         })
         // The interface talks to the app exactly as on the Mac (window.webkit.messageHandlers.mail).
+        .with_initialization_script(SHORTCUTS)
         .with_initialization_script("(()=>{const real=window.webkit&&window.webkit.messageHandlers;const h={mail:{postMessage:(m)=>window.ipc.postMessage(JSON.stringify(m))}};if(real&&real.ipc)h.ipc=real.ipc;window.webkit={messageHandlers:h}})();document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s)});")
         .with_ipc_handler(move |req| {
             if std::env::var("STUPID_MAIL_DEBUG").is_ok() { eprintln!("[ipc] {} {}", req.uri(), req.body()); }
