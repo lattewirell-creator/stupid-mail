@@ -18,8 +18,7 @@ for arch in ['arm64','x86_64']:
  run('swiftc',*sources,'-O','-o',out,'-F',sparkle,'-framework','Sparkle','-Xlinker','-rpath','-Xlinker','@executable_path/../Frameworks','-framework','AppKit','-framework','WebKit','-framework','Security','-framework','Network','-framework','EventKit','-target',f'{arch}-apple-macos13.0','-module-cache-path',f'/private/tmp/stupid-mail-swift-cache-{arch}')
  slices.append(out)
 run('lipo','-create',*slices,'-output',mac/'The Stupid Mail')
-run('swiftc',root/'macos/Icon.swift','-o','/private/tmp/stupid-mail-icon-maker','-framework','AppKit','-module-cache-path','/private/tmp/stupid-mail-swift-cache')
-run('/private/tmp/stupid-mail-icon-maker',root/'macos/mail-icon-1024.png')
+shutil.copy2(root/'macos/AppIcon-1024.png',root/'macos/mail-icon-1024.png')   # drawn from macos/AppIcon.svg
 shutil.copy2(root/'macos/mail-icon-1024.png',root/'dist/mail-icon.png')
 chunks=[]
 for name,n in [('icp4',16),('icp5',32),('icp6',64),('ic07',128),('ic08',256),('ic09',512),('ic10',1024)]:

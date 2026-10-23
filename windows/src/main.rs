@@ -115,6 +115,10 @@ pub fn attach_menu(menu: &muda::Menu, window: &Window) {
     #[cfg(target_os = "linux")] { use tao::platform::unix::WindowExtUnix; let _ = menu.init_for_gtk_window(window.gtk_window(), window.default_vbox()); }
     #[cfg(not(any(windows, target_os = "linux")))] let _ = (menu, window);
 }
+/// The keyboard shortcuts the Mac menu bar gives, for Windows where there's no menu bar: Ctrl+N new message, Ctrl+,
+/// connect an account, Ctrl+F search.
+const SHORTCUTS: &str = "addEventListener('keydown',(e)=>{if(!e.ctrlKey||e.altKey||e.shiftKey)return;const k=e.key.toLowerCase(),open=document.querySelector('dialog[open]'),el=(id)=>document.getElementById(id);\
+if(k==='n'&&!open&&el('compose')){e.preventDefault();el('compose').click()}else if(k===','&&el('connect-account')){e.preventDefault();el('connect-account').click()}else if(k==='f'&&!open&&el('search')){e.preventDefault();el('search').focus()}});";
 
 fn main() {
     let event_loop = EventLoopBuilder::<Ev>::with_user_event().build();
@@ -144,7 +148,9 @@ fn main() {
         &item("Check for Updates…", None, "update", &mut menu_ids), &item("About The Stupid Mail", None, "about", &mut menu_ids),
     ]).unwrap();
     menu.append_items(&[&file, &edit, &help]).unwrap();
-    attach_menu(&menu, &window);
+    // Windows: no menu bar under the title (the app has its own buttons for all of it); its shortcuts are handled in the
+    // page instead (see SHORTCUTS). Updates are checked by themselves once a day. Linux keeps the menu bar.
+    #[cfg(not(windows))] attach_menu(&menu, &window);
     #[cfg(target_os = "macos")] menu.init_for_nsapp();
     { let p = proxy.clone(); muda::MenuEvent::set_event_handler(Some(move |e: muda::MenuEvent| { let _ = p.send_event(Ev::Menu(e.id)); })); }
 
@@ -164,6 +170,7 @@ fn main() {
             }
         })
         // The interface talks to the app exactly as on the Mac (window.webkit.messageHandlers.mail).
+        .with_initialization_script(if cfg!(windows) { SHORTCUTS } else { "" })
         // stupidMailPlatform lets the interface say "this PC" / "this computer" where the Mac app says "this Mac".
         .with_initialization_script(format!("window.stupidMailPlatform='{}';", if cfg!(windows) { "windows" } else if cfg!(target_os = "linux") { "linux" } else { "other" }) + "(()=>{const real=window.webkit&&window.webkit.messageHandlers;const h={mail:{postMessage:(m)=>window.ipc.postMessage(JSON.stringify(m))}};if(real&&real.ipc)h.ipc=real.ipc;window.webkit={messageHandlers:h}})();document.addEventListener('DOMContentLoaded',()=>{const s=document.createElement('style');s.textContent='.window{min-height:100vh}';document.head.appendChild(s)});" + &mailto)
         .with_ipc_handler(move |req| {
