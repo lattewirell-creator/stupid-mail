@@ -686,7 +686,6 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
       document.getElementById('droidSoon').remove();
       document.getElementById('droidNote').textContent = 'Open the file on your phone. Android asks once to allow installs from your browser; your accounts and drafts stay when you update.';
       document.getElementById('heroSmall').textContent = isAndroid ? 'Also on your Android phone. Tap Download.' : 'For Mac, Windows and Android.';
-      if (isAndroid) document.getElementById('heroGet').href = droid.browser_download_url;
     }
     if (lin) {
       const a = document.querySelector('[data-plat="linux"]');
@@ -696,6 +695,12 @@ footer .postmark { margin-left: auto; width: 96px; height: 96px; font-size: 10px
       const note = document.getElementById('linuxNote');
       note.replaceChildren('Open the file and click Install, or run ', Object.assign(document.createElement('code'), { textContent: 'sudo apt install ./' + lin.name }), '. On Stupid OS it’s already in your dock and updates itself.');
       if (!(droid && isAndroid)) document.getElementById('heroSmall').textContent = 'For ' + ['Mac', win && 'Windows', lin && 'Linux', droid && 'Android'].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.';
+    }
+    // The big button downloads the version for the device you're on; on an iPhone it still shows all of them.
+    const mine = isAndroid ? ['Android', droid] : isPhone ? null : /Win/i.test(plat) ? ['Windows', win] : /Mac/i.test(plat) ? ['Mac', mac] : /Linux/i.test(plat) ? ['Linux', lin] : null;
+    if (mine && mine[1]) {
+      const get = document.getElementById('heroGet');
+      get.href = mine[1].browser_download_url; get.textContent = 'Download for ' + mine[0];
     }
     const v = String(rel.tag_name || '').replace(/^v/, '');
     if (v) {
